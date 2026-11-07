@@ -173,11 +173,14 @@ func TestSideOf(t *testing.T) {
 	}
 }
 
-// fakeGroove simula o identity e o catálogo do Pi 5.
+// fakeGroove simula o identity e o catálogo do Pi 5. A edição tem o disco inteiro; a
+// biblioteca (/tracks), só as faixas que já tocaram.
 type fakeGroove struct {
-	status      string
-	stylusCalls int
-	trackCalls  int
+	status       string
+	noEdition    bool
+	stylusCalls  int
+	editionCalls int
+	trackCalls   int
 }
 
 func (f *fakeGroove) server() *httptest.Server {
@@ -187,11 +190,20 @@ func (f *fakeGroove) server() *httptest.Server {
 		f.stylusCalls++
 		fmt.Fprint(w, `{"active":true,"metrics":{"stylus_hours_total":119.35,"wear_percent":11.94}}`)
 	})
+	mux.HandleFunc("/catalog/library/releases/user/dsotm/edition", func(w http.ResponseWriter, r *http.Request) {
+		f.editionCalls++
+		if f.noEdition {
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Fprint(w, `{"draft":{"track_total":6,"tracklist":[{"position":"A1","duration_ms":67000},
+			{"position":"A2","duration_ms":163000},{"position":"A3","duration_ms":216000},
+			{"position":"A4","duration_ms":421000},{"position":"A5","duration_ms":284000},
+			{"position":"B1","duration_ms":382000}]}}`)
+	})
 	mux.HandleFunc("/catalog/library/releases/user/dsotm/tracks", func(w http.ResponseWriter, _ *http.Request) {
 		f.trackCalls++
-		fmt.Fprint(w, `{"items":[{"track_position":"A1","duration_ms":67000},{"track_position":"A2","duration_ms":163000},
-			{"track_position":"A3","duration_ms":216000},{"track_position":"A4","duration_ms":421000},
-			{"track_position":"A5","duration_ms":284000},{"track_position":"B1","duration_ms":382000}]}`)
+		fmt.Fprint(w, `{"items":[{"track_position":"A1","duration_ms":67000}]}`)
 	})
 	return httptest.NewServer(mux)
 }
@@ -227,8 +239,8 @@ func TestNowPlayingRead(t *testing.T) {
 		t.Fatalf("stylus: %+v", in)
 	}
 	np.read(now.Add(time.Second))
-	if g.stylusCalls != 1 || g.trackCalls != 1 {
-		t.Errorf("stylus read %d times, tracks %d times; want once each", g.stylusCalls, g.trackCalls)
+	if g.stylusCalls != 1 || g.editionCalls != 1 || g.trackCalls != 0 {
+		t.Errorf("stylus read %d times, edition %d, library %d; want 1, 1, 0", g.stylusCalls, g.editionCalls, g.trackCalls)
 	}
 	np.read(now.Add(stylusEvery))
 	if g.stylusCalls != 2 {
@@ -279,6 +291,42 @@ func TestNowPlayingRead(t *testing.T) {
 	g.status = `{"playback":{"active":false}}`
 	if in = np.read(now.Add(time.Hour + time.Second)); in.SideEnd || in.Playing || in.Title != "" {
 		t.Errorf("stopped mid-side: %+v", in)
+	}
+}
+
+// Disco novo: a biblioteca só tem a A1, mas a edição tem o lado inteiro. O fim da A1
+// (captura nova) é troca de faixa, não fim de lado (All Shook Down, 2026-11-07).
+func TestNowPlayingNewRecordFirstTrack(t *testing.T) {
+	g := &fakeGroove{status: playingEpochs("A1", 50000, 67000, 10, 10)}
+	srv := g.server()
+	defer srv.Close()
+	np := newNowPlaying(srv.URL, srv.URL, filepath.Join(t.TempDir(), "none.json"))
+	now := time.Unix(1000, 0)
+	if in := np.read(now); in.SideTrack != 1 || in.SideTracks != 5 {
+		t.Fatalf("A1 of a new record: %+v", in)
+	}
+	g.status = playingEpochs("A1", 62000, 67000, 10, 11)
+	if in := np.read(now.Add(12 * time.Second)); !in.Playing || in.SideEnd {
+		t.Errorf("end of A1 is not the end of the side: %+v", in)
+	}
+}
+
+// Sem a edição, a biblioteca serve, mas não fica guardada: pode estar incompleta.
+func TestNowPlayingLibraryFallback(t *testing.T) {
+	g := &fakeGroove{status: playing("A1", 10000, 67000), noEdition: true}
+	srv := g.server()
+	defer srv.Close()
+	np := newNowPlaying(srv.URL, srv.URL, filepath.Join(t.TempDir(), "none.json"))
+	now := time.Unix(1000, 0)
+	if in := np.read(now); in.SideTrack != 1 || in.SideTracks != 1 {
+		t.Fatalf("library tracks: %+v", in)
+	}
+	g.noEdition = false
+	if in := np.read(now.Add(time.Second)); in.SideTracks != 5 {
+		t.Errorf("edition back: %+v", in)
+	}
+	if g.trackCalls != 1 || g.editionCalls != 2 {
+		t.Errorf("library %d, edition %d; want 1, 2", g.trackCalls, g.editionCalls)
 	}
 }
 

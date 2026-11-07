@@ -383,22 +383,47 @@ func (np *nowPlaying) read(now time.Time) info {
 }
 
 // loadTracks busca as faixas do disco uma vez por disco.
+//
+// A lista vem da edição do disco (/edition: todas as faixas, com duração). O /tracks só
+// tem as faixas que já tocaram e entraram na biblioteca: num disco novo, só a A1, que aí
+// parecia a última do lado A e dava um "End of side A" falso (All Shook Down, 2026-11-07).
+// Ele fica de reserva se a edição não responder.
 func (np *nowPlaying) loadTracks(source, id string) {
 	key := source + "/" + id
 	if key == np.release {
 		return
 	}
+	base := np.catalog + "/catalog/library/releases/" + url.PathEscape(source) + "/" + url.PathEscape(id)
+	var ed struct {
+		Draft struct {
+			Tracklist []struct {
+				Position string `json:"position"`
+				Duration int64  `json:"duration_ms"`
+			} `json:"tracklist"`
+		} `json:"draft"`
+	}
+	err := np.getJSON(base+"/edition", &ed)
+	if err == nil && len(ed.Draft.Tracklist) > 0 {
+		tracks := make([]track, len(ed.Draft.Tracklist))
+		for i, t := range ed.Draft.Tracklist {
+			tracks[i] = track{Position: t.Position, Duration: t.Duration}
+		}
+		np.release, np.tracks = key, tracks
+		log.Printf("release %s: %d tracks (edition)", key, len(tracks))
+		return
+	}
+	log.Printf("edition %s: %v (%d tracks); using library tracks", key, err, len(ed.Draft.Tracklist))
 	var resp struct {
 		Items []track `json:"items"`
 	}
-	u := np.catalog + "/catalog/library/releases/" + url.PathEscape(source) + "/" + url.PathEscape(id) + "/tracks"
-	if err := np.getJSON(u, &resp); err != nil {
+	if err := np.getJSON(base+"/tracks", &resp); err != nil {
 		log.Printf("tracks %s: %v", key, err)
 		np.tracks = nil // tenta de novo na próxima leitura
 		return
 	}
-	np.release, np.tracks = key, resp.Items
-	log.Printf("release %s: %d tracks", key, len(resp.Items))
+	// Sem a edição a lista pode estar incompleta: não guarda, lê de novo na próxima vez.
+	np.tracks = resp.Items
+	log.Printf("release %s: %d tracks (library)", key, len(resp.Items))
 }
 
 // pumpInfo lê os serviços a cada segundo, só enquanto alguém pede as telas, e manda o

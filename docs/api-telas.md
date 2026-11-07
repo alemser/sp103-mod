@@ -69,7 +69,7 @@ Sem pacote por 15 s, o Pico descarta os dados e volta à tela do amp.
 | Campo | De onde vem |
 |---|---|
 | artista, música, faixa no disco, posição, duração | groove-identity `GET /status` → `playback` (`artist`, `title`, `track_position`, `position_ms`, `duration_ms`), a cada 1 s |
-| lado, faixa no lado, tempo do lado | a letra da `track_position` e a lista de faixas do disco: `album_programme.release_source` / `release_id` → groove-catalog `GET /catalog/library/releases/{source}/{id}/tracks` (`track_position`, `duration_ms`), uma vez por disco |
+| lado, faixa no lado, tempo do lado | a letra da `track_position` e a lista de faixas do disco: `album_programme.release_source` / `release_id` → groove-catalog `GET /catalog/library/releases/{source}/{id}/edition` (`draft.tracklist`: `position`, `duration_ms`), uma vez por disco. Se a edição falhar, usa `.../tracks`, que só tem as faixas que já tocaram, e lê de novo na próxima vez |
 | agulha | groove-catalog `GET /catalog/stylus` → `metrics.stylus_hours_total`, `metrics.wear_percent`, a cada 10 min; vazio se `active` for falso |
 | streaming, codec, sample rate, bits, bitrate | o arquivo de transporte do groove-detector, `/tmp/groove-transport.json` (`source`, `active`, `codec`, `samplerate`, `bitdepth`, `bitrate`), a cada 1 s; vazio sem arquivo ou com `active` falso. O bitrate só existe no Bluetooth com SBC, AAC ou aptX |
 | lado acabou | na última faixa do lado, a menos de 30 s do fim pela duração do catálogo, o identity abriu uma captura nova (`recognition.epoch` > `playback.epoch`: o listener viu a música acabar) ou parou (`playback.active` falso); vale até a próxima faixa ou 15 min |
