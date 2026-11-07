@@ -1,7 +1,11 @@
 # Contrato das telas de informação (fonte → Pico)
 
-O Pico do SP103 pode mostrar no display o que está tocando: artista e música, faixa e posição, tempo até o fim do
-lado, horas da agulha. Ele não sabe de onde vêm esses dados: só conhece este contrato. Quem fala este contrato é uma
+O Pico do SP103 pode mostrar no display as horas e o desgaste da agulha (nas entradas do toca-discos) e a qualidade
+do Bluetooth (na entrada DAB). Ele não sabe de onde vêm esses dados: só conhece este contrato.
+
+Desde 2026-11-07 o Pico não mostra mais artista e música, faixa e posição, tempo do lado nem o aviso de fim do lado
+(`firmware/screens.py`). Os campos continuam no contrato e a fonte continua mandando: o Pico lê e ignora. Quem quiser
+voltar a mostrar não precisa mudar o pacote. Quem fala este contrato é uma
 **fonte**. A fonte de hoje é o `sp103-vu-relay`, que lê o groove-identity e o groove-catalog
 (`relay/nowplaying.go`); outra fonte (Volumio, Home Assistant) só precisa mandar os mesmos pacotes.
 
@@ -24,8 +28,8 @@ ignora o bit 0, e uma que só tem o VU ignora o bit 1.
 ```
 
 - `versão` = 1. O Pico ignora pacotes de outra versão.
-- `flags`: bit 0 = tocando agora; bit 1 = o lado acabou. É o fato: a fonte o repete enquanto valer. Quanto tempo
-  mostrar "Flip the record" é decisão do Pico (1 min, `screens.FLIP_MS`).
+- `flags`: bit 0 = tocando agora (o Pico mostra a agulha quando o disco começa a tocar); bit 1 = o lado acabou
+  (o Pico ignora). É o fato: a fonte o repete enquanto valer.
 - Os campos vêm sempre nesta ordem, separados pelo byte 0x1F. **Campo vazio = não se sabe**: a tela que depende dele
   não aparece, e as outras continuam.
 - Texto só em ASCII de `" "` a `"}"`, sem `"\"` (a ROM do display não tem acentos; nela `"\"` vira `"¥"` e `"~"` vira
@@ -34,15 +38,15 @@ ignora o bit 0, e uma que só tem o VU ignora o bit 1.
 
 | # | Campo | Exemplo | Tela |
 |---|---|---|---|
-| 0 | artista | `Pink Floyd` | Artist and title |
-| 1 | música | `Time` | Artist and title, Track |
-| 2 | faixa no disco | `A4` | Track |
-| 3 | posição na faixa (s) | `161` | Track |
-| 4 | duração da faixa (s) | `421` | Track |
-| 5 | lado | `A` | Side |
-| 6 | faixa no lado | `4` | Side |
-| 7 | faixas no lado | `5` | Side |
-| 8 | tempo até o fim do lado (s) | `608` | Side, fim do lado |
+| 0 | artista | `Pink Floyd` | (ignorado) |
+| 1 | música | `Time` | (ignorado) |
+| 2 | faixa no disco | `A4` | (ignorado) |
+| 3 | posição na faixa (s) | `161` | (ignorado) |
+| 4 | duração da faixa (s) | `421` | (ignorado) |
+| 5 | lado | `A` | (ignorado) |
+| 6 | faixa no lado | `4` | (ignorado) |
+| 7 | faixas no lado | `5` | (ignorado) |
+| 8 | tempo até o fim do lado (s) | `608` | (ignorado) |
 | 9 | horas da agulha | `312` | Stylus |
 | 10 | desgaste da agulha (%) | `62` | Stylus |
 | 11 | streaming tocando: `airplay` ou `bluetooth` (vazio = nenhum) | `bluetooth` | nome da entrada DAB, Bluetooth quality |
@@ -58,9 +62,7 @@ Um pacote fica com uns 60 a 150 bytes. Campos a mais no fim são ignorados (para
 - Quando qualquer campo ou flag muda (faixa nova, lado acabou, agulha).
 - A cada 5 s enquanto houver pedido, mesmo sem mudança.
 
-As posições e o tempo do lado valem **no instante do envio**. Com o bit "tocando", o Pico soma o tempo que passou desde
-que o pacote chegou, então a fonte não precisa mandar um pacote por segundo. O Pico só corrige o relógio dele quando
-um pacote novo difere mais de 2 s do que ele contou, para a contagem não pular à toa.
+As posições e o tempo do lado valem **no instante do envio**.
 
 Sem pacote por 15 s, o Pico descarta os dados e volta à tela do amp.
 

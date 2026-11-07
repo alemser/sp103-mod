@@ -303,7 +303,7 @@ def run_info(proxy, words, end_ms, info_cfg):
 
 
 def check_info(path):
-    """Telas de informação: modo fixo e temporário, com a tela do amp no meio."""
+    """Telas de informação: a agulha no modo fixo e no temporário, com a tela do amp no meio."""
     fails = 0
 
     def ok(cond, what):
@@ -312,14 +312,12 @@ def check_info(path):
         print("%-5s %s" % ("ok" if cond else "FALHA", what))
 
     proxy = load_proxy()
-    changes = run_info(proxy, words_from_lac(path), 6000, {"on": True, "mode": "fixed", "fixed": "pos"})
+    changes = run_info(proxy, words_from_lac(path), 6000, {"on": True, "mode": "fixed"})
     kinds = [k if isinstance(k, str) else "amp" for _, k, _ in changes if k != (" " * 16,) * 2]
-    ok(kinds[:3] == ["pos", "amp", "pos"], "fixo: a tela escolhida, a tela do amp, a escolhida: %s" % kinds)
-    ok(changes[0][1] == "pos" and changes[0][0] < 50, "fixo: aparece logo no primeiro pacote (%d ms)" % changes[0][0])
+    ok(kinds == ["amp", "stylus"], "fixo, no toca-discos (TUNER): a tela do amp, depois a agulha: %s" % kinds)
     ok(not proxy.vu.on, "fixo: o VU nem pede quadros")
-    first = next(l for _, k, l in changes if k == "pos")
-    ok(first == ("A4 Time         ", "2:41/7:01  -4:20"), "fixo: faixa e posição %r" % (first,))
-    ok(proxy.lcd.lines[1] == "2:46/7:01  -4:15", "o Pico conta os segundos entre os pacotes: %r" % proxy.lcd.lines[1])
+    first = next(l for _, k, l in changes if k == "stylus")
+    ok(first[0] == "Stylus     312 h" and first[1].endswith(" 62%"), "a tela da agulha: %r" % (first,))
     ok(bytes(proxy.lcd.cgram[:64]) == proxy.screens_mod.GLYPHS, "as telas usam os desenhos de barra do VU")
 
     proxy = load_proxy()
@@ -329,15 +327,10 @@ def check_info(path):
         k = k if isinstance(k, str) else "amp"
         if k != "amp" or not kinds or kinds[-1] != "amp":
             kinds.append(k)
-    ok(kinds[:2] == ["track", "amp"] and kinds[2:6] == ["track", "pos", "side", "stylus"] and kinds[6] == "vu",
-       "temporário: as telas em sequência, depois o VU: %s" % kinds)
+    ok(kinds == ["vu", "amp", "stylus", "vu"], "temporário: a tela do amp mostra a entrada (TUNER), a agulha, "
+       "depois o VU: %s" % kinds)
     at = {k: t for t, k, _ in reversed(changes) if isinstance(k, str)}
-    spans = [at["side"] - at["pos"], at["stylus"] - at["side"], at["vu"] - at["stylus"]]
-    ok(all(4990 <= d <= 5110 for d in spans), "cada tela fica 5 s: %s ms" % spans)
-    side = next(l for _, k, l in changes if k == "side")
-    ok(side[0] == "Side A track 4/5", "a tela do lado: %r" % (side,))
-    stylus = next(l for _, k, l in changes if k == "stylus")
-    ok(stylus[0] == "Stylus     312 h" and stylus[1].endswith(" 62%"), "a tela da agulha: %r" % (stylus,))
+    ok(4990 <= at["vu"] - at["stylus"] <= 5110, "a agulha fica 5 s: %d ms" % (at["vu"] - at["stylus"]))
 
     proxy = load_proxy()
     run_info(proxy, words_from_lac(path), 1500, {"on": True, "mode": "fixed"})

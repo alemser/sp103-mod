@@ -1,24 +1,24 @@
 """Quem aparece no display, e o texto das telas de informação.
 
 O proxy.py pergunta pick() quando a tela do amp não tem a vez (3 s depois de cada
-redesenho do controlador). Em ordem:
+redesenho do controlador). São duas telas, cada uma na sua entrada:
+
+- "stylus": horas e desgaste da agulha, só nas entradas do toca-discos ("turntable":
+  PHONO, TUNER...).
+- "quality": a qualidade do Bluetooth (codec, sample rate, bits, bitrate), só na entrada
+  do streaming (amp_state.STREAMING_INPUT) com o Bluetooth tocando.
+
+Em ordem:
 
 1. Standby: o relógio, se ligado; senão, a tela do amp (apagada).
-2. Fim do lado (se o aviso estiver ligado, e só nas entradas do toca-discos): no último
-   minuto, "End of side A" e o tempo; depois que acaba, "Flip the record" piscando por
-   FLIP_MS, e então a tela do amp. Um fim de lado que já veio no primeiro pacote (o Pico
-   acabou de ligar) não conta: o aviso é para quando o disco acaba.
-3. Modo fixo: a tela escolhida, o tempo todo enquanto toca. O VU não entra.
-4. Modo temporário: a cada faixa nova, as telas marcadas em sequência, "secs" cada uma
-   (a da agulha só no começo de um lado). Depois o VU, se ligado; senão, a tela do amp.
-   A tela da agulha só aparece nas entradas do toca-discos ("turntable": PHONO, TUNER...).
-5. Sem música ou sem dados: o VU (que só aparece com música) ou a tela do amp.
+2. Modo fixo: a tela marcada da entrada de agora, o tempo todo. O VU não entra.
+3. Modo temporário: a tela marcada entra por "secs". A agulha, quando o amp passa para
+   uma entrada do toca-discos e quando o disco começa a tocar; a qualidade, quando o
+   Bluetooth começa ou a qualidade muda. Depois o VU, se ligado; senão, a tela do amp.
+4. Sem dados: o VU (que só aparece com música) ou a tela do amp.
 
-Bluetooth na entrada do streaming (amp_state.STREAMING_INPUT): a tela "quality" (codec,
-sample rate, bits, bitrate) entra por "secs" quando o Bluetooth começa ou a qualidade muda,
-se estiver marcada; no modo fixo, o tempo todo. Ela vem antes do passo 2 (o aviso de fim do
-lado é só das entradas do toca-discos). O nome do streaming na tela do amp ("AirPlay",
-"Bluetooth") é o stream_label(), que o proxy.py passa ao names.rewrite().
+O nome do streaming na tela do amp ("AirPlay", "Bluetooth") é o stream_label(), que o
+proxy.py passa ao names.rewrite().
 
 Os textos são em inglês, como os do amp. As barras usam os desenhos do VU (vu.GLYPHS); o
 desenho 7 (o clip do VU, que as telas não usam) vira o símbolo do Bluetooth.
@@ -29,13 +29,7 @@ import time
 import vu as vu_meter
 from amp_state import STREAMING_INPUT
 
-KINDS = ("track", "pos", "side", "stylus", "quality")
-TRACK_KINDS = KINDS[:4]         # as que entram em sequência a cada faixa nova
-ALERT_S = 60                    # o aviso de fim do lado começa no último minuto
-FLIP_MS = 60000                 # escolhido: "Flip the record" fica 1 min; o disco parado não pede mais
-BLINK_MS = (1000, 500)          # "Flip the record": aceso, apagado
-SCROLL_PAUSE_MS = 2000          # nome longo: parado 2 s, depois anda
-SCROLL_STEP_MS = 350            # uma letra a cada 0,35 s
+KINDS = ("stylus", "quality")
 STYLUS_WARN = 90                # % de desgaste: "Replace stylus"
 DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -44,10 +38,6 @@ BT = 7                          # o código do símbolo do Bluetooth (ᛒ) nos d
 BT_GLYPH = bytes((0x04, 0x06, 0x15, 0x0E, 0x0E, 0x15, 0x06, 0x04))
 GLYPHS = vu_meter.GLYPHS[:8 * BT] + BT_GLYPH
 STREAM_NAMES = {"airplay": "AirPlay", "bluetooth": chr(BT) + " Bluetooth"}
-
-
-def mmss(s):
-    return "%d:%02d" % (s // 60, s % 60)
 
 
 def lr(left, right):
@@ -59,17 +49,6 @@ def lr(left, right):
 def center(text):
     left = (16 - len(text)) // 2
     return (" " * left + text + " " * 16)[:16]
-
-
-def roll(text, width, ms):
-    """Nome maior que a largura: parado SCROLL_PAUSE_MS, depois anda em volta."""
-    if len(text) <= width:
-        return text
-    loop = text + "   "
-    period = SCROLL_PAUSE_MS + len(loop) * SCROLL_STEP_MS
-    k = ms % period
-    off = 0 if k < SCROLL_PAUSE_MS else (k - SCROLL_PAUSE_MS) // SCROLL_STEP_MS
-    return (loop + loop)[off:off + width]
 
 
 def khz(rate):
@@ -123,13 +102,13 @@ def eu_summer(t):
 class Screens:
     def __init__(self, info):
         self.info = info
-        self.cfg = {"on": False, "mode": "temp", "fixed": "track", "show": list(KINDS), "secs": 8,
-                    "alert": True, "clock": True, "scroll": True, "utc_offset": 0, "eu_dst": True}
-        self.seq = []
-        self.seq_at = 0
-        self.seen_track = 0
+        self.cfg = {"on": False, "mode": "temp", "show": list(KINDS), "secs": 8, "clock": True,
+                    "utc_offset": 0, "eu_dst": True, "turntable": []}
         self.seen_stream = 0
         self.quality_at = None          # quando a tela "quality" entrou (modo temporário)
+        self.stylus_at = None           # quando a tela "stylus" entrou (modo temporário)
+        self.was_playing = False
+        self.seen_input = None          # a entrada que _pick() viu por último, com dados
         self.key = None
         self.since = 0
         self.input = None               # a entrada do amp agora ("TUNER"), do amp_state
@@ -138,24 +117,19 @@ class Screens:
     def configure(self, cfg):
         """cfg = names.json "info" (names.py)."""
         self.cfg = cfg
-        self.seq = []
-        self.seen_track = self.info.track_seq
         self.seen_stream = self.info.stream_seq
-        self.quality_at = None
+        self.quality_at = self.stylus_at = None
+        self.was_playing = self.info.playing
         self.error = None
 
     def vu_allowed(self):
         """No modo fixo o VU não entra: o Pico nem pede os quadros."""
         return not (self.cfg["on"] and self.cfg["mode"] == "fixed")
 
-    def _has(self, kind, now):
+    def _has(self, kind):
         d = self.info.data
-        if kind == "track":
-            return d["title"] is not None
-        if kind == "pos":
-            return d["title"] is not None and (d["position"] is not None or d["duration"] is not None)
-        if kind == "side":
-            return d["side"] is not None and self.info.side_left(now) is not None
+        if kind not in self.cfg["show"]:
+            return False
         if kind == "stylus":
             return d["stylus_hours"] is not None and self.input in self.cfg["turntable"]
         if kind == "quality":
@@ -187,73 +161,37 @@ class Screens:
             self.key, self.since = key, now
         return key
 
+    def _shown(self, at, now):
+        return at is not None and time.ticks_diff(now, at) < self.cfg["secs"] * 1000
+
     def _pick(self, now, standby, vu_active):
         cfg, info = self.cfg, self.info
         if standby:
             return "clock" if cfg["on"] and cfg["clock"] and self._clock_time() else None
         if not cfg["on"] or not info.fresh(now):
             return "vu" if vu_active else None
-        quality = self._has("quality", now)
+        quality, stylus = self._has("quality"), self._has("stylus")
         if info.stream_seq != self.seen_stream:
             self.seen_stream = info.stream_seq
-            self.quality_at = now if quality and "quality" in cfg["show"] else None
-        if quality and cfg["mode"] == "fixed" and cfg["fixed"] == "quality":
-            return "quality"
-        if quality and cfg["mode"] == "temp" and self.quality_at is not None:
-            if time.ticks_diff(now, self.quality_at) < cfg["secs"] * 1000:
-                return "quality"
-            self.quality_at = None
-        if info.track_seq != self.seen_track:
-            self.seen_track = info.track_seq
-            self.seq = [k for k in TRACK_KINDS if k in cfg["show"] and (k != "stylus" or info.side_start)]
-            self.seq_at = now
-        if cfg["alert"] and info.data["side"] is not None and self.input in cfg["turntable"]:
-            left = info.side_left(now)
-            if info.side_end:
-                if info.side_end_at is not None and time.ticks_diff(now, info.side_end_at) < FLIP_MS:
-                    return "alert"
-            elif info.playing and left is not None and left < ALERT_S:
-                return "alert"
-        if not info.playing:
-            return "vu" if vu_active else None
+            self.quality_at = now if quality else None
+        # Só com dados: uma troca de entrada antes do primeiro pacote ainda conta.
+        entered = self.input != self.seen_input
+        started = info.playing and not self.was_playing
+        self.seen_input, self.was_playing = self.input, info.playing
+        if stylus and (entered or started):
+            self.stylus_at = now
         if cfg["mode"] == "fixed":
-            kind = cfg["fixed"]
-            return kind if self._has(kind, now) else "track" if self._has("track", now) else None
-        secs = cfg["secs"] * 1000
-        while self.seq and (time.ticks_diff(now, self.seq_at) >= secs or not self._has(self.seq[0], now)):
-            if self._has(self.seq[0], now):
-                self.seq_at = time.ticks_add(self.seq_at, secs)
-            self.seq.pop(0)
-        if self.seq:
-            return self.seq[0]
+            return "quality" if quality else "stylus" if stylus else None
+        if quality and self._shown(self.quality_at, now):
+            return "quality"
+        if stylus and self._shown(self.stylus_at, now):
+            return "stylus"
         return "vu" if vu_active else None
 
     def lines(self, key, now):
         """As duas linhas (16 caracteres cada) de uma tela de informação."""
-        d, info = self.info.data, self.info
-        ms = time.ticks_diff(now, self.since) if self.cfg["scroll"] else 0
-        title = d["title"] or ""
-        if key == "track":
-            # Só a música rola: o artista fica cortado, para não haver duas linhas andando.
-            l1, l2 = (d["artist"] or "")[:16], roll(title, 16, ms)
-        elif key == "pos":
-            pos = d["position"]
-            l1 = (pos + " " + roll(title, 15 - len(pos), ms)) if pos else roll(title, 16, ms)
-            el, dur = info.elapsed(now), d["duration"]
-            l2 = lr(mmss(el) + "/" + mmss(dur), "-" + mmss(dur - el)) if el is not None and dur else ""
-        elif key == "side":
-            l1 = lr("Side " + d["side"], "track %d/%d" % (d["side_track"], d["side_tracks"])
-                    if d["side_track"] and d["side_tracks"] else "")
-            l2 = lr("Left", mmss(info.side_left(now)))
-        elif key == "alert":
-            l1 = "End of side " + (d["side"] or "")
-            if info.side_end:
-                blink = time.ticks_diff(now, self.since) % sum(BLINK_MS)
-                l2 = "Flip the record" if blink < BLINK_MS[0] else ""
-            else:
-                left = info.side_left(now)
-                l2 = lr("Left", mmss(left)) if left is not None else ""
-        elif key == "stylus":
+        d = self.info.data
+        if key == "stylus":
             wear = d["stylus_wear"]
             l1 = "Replace stylus" if wear is not None and wear >= STYLUS_WARN \
                 else lr("Stylus", "%d h" % d["stylus_hours"])

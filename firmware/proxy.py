@@ -11,8 +11,8 @@ Cada tela completa do controlador é reconstruída (hd44780.py), vai para o leit
 
 Com o VU ligado na configuração (vu.py), as duas linhas viram as barras L e R enquanto houver
 música; cada redesenho do controlador traz a tela do amp de volta por 3 s. Com as telas de
-informação ligadas (info.py recebe, screens.py escolhe), o display mostra também o que
-está tocando, o fim do lado, a agulha e o relógio no standby.
+informação ligadas (info.py recebe, screens.py escolhe), o display mostra também a agulha
+(no toca-discos), a qualidade do Bluetooth (na DAB) e o relógio no standby.
 
 Publica o estado na rede (web.py; o cliente é a app do repositório amp-link), com /bus e
 atualização pelo Wi-Fi, como a escuta. Sem Wi-Fi, o display continua funcionando.
@@ -85,7 +85,7 @@ last_full = time.ticks_ms()
 vu = vu_meter.Vu()
 info = info_feed.Info()
 screens = screens_mod.Screens(info)
-own = None                              # a tela própria no display ("vu", "track"...); None = a do amp
+own = None                              # a tela própria no display ("vu", "stylus"...); None = a do amp
 own_at = time.ticks_ms()                # quando ela foi desenhada
 amp_until = time.ticks_ms()             # até aqui, a tela do amp tem a vez
 

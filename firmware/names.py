@@ -8,10 +8,9 @@ Ficam no arquivo names.json do Pico e são editados pela app (PUT /names):
      "vu":     {"on": False, "layout": "bars",                      # VU meter (vu.py), sempre com a
                 "relay": "192.168.1.50"}}                            # escala automática
                                                                      # layout: bars, deck, scale, kx393
-     "info":   {"on": False, "mode": "temp", "fixed": "track",          # telas de informação
-                "show": ["track", "pos", "side", "stylus", "quality"],  # (screens.py, info.py)
-                "secs": 8,                                              # quality: Bluetooth na DAB
-                "alert": True, "clock": True, "scroll": True,
+     "info":   {"on": False, "mode": "temp",                            # telas de informação
+                "show": ["stylus", "quality"],                          # (screens.py, info.py)
+                "secs": 8, "clock": True,                               # quality: Bluetooth na DAB
                 "utc_offset": 0, "eu_dst": True, "source": "",          # source "" = a do VU
                 "turntable": ["PHONO", "TUNER"]}}                       # a agulha só nessas entradas
 
@@ -32,10 +31,10 @@ MAX_LEN = 16                    # uma linha do LCD
 SCREENS = ("boot", "about")
 VU_DEFAULT = {"on": False, "layout": "bars", "relay": ""}
 VU_LAYOUTS = ("bars", "deck", "scale", "kx393")   # os mesmos de vu.LAYOUTS
-INFO_DEFAULT = {"on": False, "mode": "temp", "fixed": "track", "show": ["track", "pos", "side", "stylus", "quality"],
-                "secs": 8, "alert": True, "clock": True, "scroll": True, "utc_offset": 0, "eu_dst": True,
-                "source": "", "turntable": ["PHONO", "TUNER"]}
-INFO_KINDS = ("track", "pos", "side", "stylus", "quality")   # os mesmos de screens.KINDS
+INFO_DEFAULT = {"on": False, "mode": "temp", "show": ["stylus", "quality"], "secs": 8, "clock": True,
+                "utc_offset": 0, "eu_dst": True, "source": "", "turntable": ["PHONO", "TUNER"]}
+INFO_KINDS = ("stylus", "quality")      # os mesmos de screens.KINDS
+INFO_GONE = ("track", "pos", "side")    # telas que saíram (2026-11-07): ignoradas num names.json antigo
 INFO_SECS = (3, 60)
 INFO_OFFSET = (-12, 14)         # horas a partir do UTC
 
@@ -117,16 +116,14 @@ def _info(info):
     if not isinstance(info, dict):
         raise ValueError("'info' must be a JSON object")
     out = dict(INFO_DEFAULT)
-    out.update(info)
-    for key in ("on", "alert", "clock", "scroll", "eu_dst"):
+    out.update(info)            # "fixed", "alert" e "scroll" de um names.json antigo: ignorados
+    for key in ("on", "clock", "eu_dst"):
         if not isinstance(out[key], bool):
             raise ValueError("info '%s' must be true or false" % key)
     if out["mode"] not in ("temp", "fixed"):
         raise ValueError("the info mode must be temp or fixed")
-    if out["fixed"] not in INFO_KINDS:
-        raise ValueError("the fixed screen must be one of: " + ", ".join(INFO_KINDS))
     show = out["show"]
-    if not isinstance(show, list) or any(k not in INFO_KINDS for k in show):
+    if not isinstance(show, list) or any(k not in INFO_KINDS + INFO_GONE for k in show):
         raise ValueError("info 'show' must be a list with some of: " + ", ".join(INFO_KINDS))
     secs = out["secs"]
     if isinstance(secs, bool) or not isinstance(secs, int) or not INFO_SECS[0] <= secs <= INFO_SECS[1]:
@@ -141,9 +138,8 @@ def _info(info):
     source = out["source"].strip() if isinstance(out["source"], str) else None
     if source is None or (source and not _is_ip(source)):
         raise ValueError("the info source must be an IP address, or empty to use the VU source")
-    return {"on": out["on"], "mode": out["mode"], "fixed": out["fixed"],
-            "show": [k for k in INFO_KINDS if k in show], "secs": secs, "alert": out["alert"],
-            "clock": out["clock"], "scroll": out["scroll"], "utc_offset": offset, "eu_dst": out["eu_dst"],
+    return {"on": out["on"], "mode": out["mode"], "show": [k for k in INFO_KINDS if k in show], "secs": secs,
+            "clock": out["clock"], "utc_offset": offset, "eu_dst": out["eu_dst"],
             "source": source, "turntable": [k for k in INPUTS if k in turntable]}
 
 
