@@ -51,7 +51,8 @@ from buslog import BusLog
 from control import Control
 from hd44780 import Bus, RW
 from lcd1602 import Lcd1602
-from web import Publisher, wifi_task
+from web import Publisher
+from wifi import Wifi
 
 # Uma tela está completa quando o controlador fica este tempo sem escrever
 # (ele redesenha as duas linhas em cerca de 8,5 ms, com uma escrita a cada ~115 µs).
@@ -73,6 +74,7 @@ bus = Bus()
 # começa com os das capturas, e o modelo troca se o controlador gravar outros.
 bus.lcd.cgram[:] = bytes(b for rows in s.CGRAM for b in rows)
 log = BusLog(bus)
+net = Wifi(model="sp103", hostname="sp103", prefix="SP103")   # rede de casa, configuração e descoberta
 pub = None
 wifi_ok = False
 listen_ticks = 0                        # voltas da escuta: mostra que ela não travou
@@ -305,9 +307,10 @@ async def main():
     global pub
     pub = Publisher(state, get_names=lambda: texts, set_names=set_texts, names_extra=status,
                     routes={"/update": ota.handle, "/bus": log.handle, "/device": device.handle,
-                            "/ir": remote.handle, "/control": control.handle})
+                            "/ir": remote.handle, "/control": control.handle,
+                            "/wifi": net.handle, "/": net.page})
     log.clear(time.ticks_ms())
-    asyncio.create_task(wifi_task(wifi_result))
+    asyncio.create_task(net.task(wifi_result))
     await asyncio.sleep(0.1)            # o Wi-Fi liga antes do servidor abrir o socket
     await pub.serve()                   # atende assim que houver rede
     asyncio.create_task(confirm_update())

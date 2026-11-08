@@ -16,12 +16,14 @@ import names
 import sp103_screens as s
 from amp_state import AmpState, INPUTS
 from lcd1602 import Lcd1602
-from web import Publisher, wifi_task
+from web import Publisher
+from wifi import Wifi
 
 lcd = Lcd1602()
 texts = names.load()                    # textos personalizados (names.py)
 state = AmpState(texts["inputs"])
 last_screen = ("", "")
+net = Wifi(model="sp103", hostname="sp103", prefix="SP103")
 pub = None
 notice_until = None                     # enquanto houver um aviso no display, as telas esperam
 
@@ -136,8 +138,9 @@ def wifi_result(ok, info):
 
 async def main():
     global pub
-    pub = Publisher(state, get_names=lambda: texts, set_names=set_texts)
-    asyncio.create_task(wifi_task(wifi_result))
+    pub = Publisher(state, get_names=lambda: texts, set_names=set_texts,
+                    routes={"/wifi": net.handle, "/": net.page})
+    asyncio.create_task(net.task(wifi_result))
     await asyncio.sleep(0.1)            # o Wi-Fi liga antes do servidor abrir o socket
     await pub.serve()                   # atende assim que houver rede
     await demo()                        # o display começa na hora, com ou sem Wi-Fi

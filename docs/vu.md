@@ -98,7 +98,7 @@ O serviço `sp103-vu-relay` roda como `nobody`, no grupo `groove` (o socket do V
 Estimado, ainda não medido: o detector junta um bloco de amostras antes de calcular (~46 ms), a ponte e o Wi-Fi somam
 de 5 a 20 ms (às vezes 50 a 100 ms), e o cristal do display leva de 100 a 200 ms para mudar um pixel. As barras
 acompanham a música como um VU de ponteiro; a batida seca do bumbo pode parecer um pouco atrasada. A economia de
-energia do Wi-Fi do Pico já está desligada (`web.py`).
+energia do Wi-Fi do Pico já está desligada (`wifi.py`).
 
 O VU mede o REC OUT, que normalmente sai antes do controle de volume do amp: com o volume baixo, as barras continuam
 altas.

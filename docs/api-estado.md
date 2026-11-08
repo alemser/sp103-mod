@@ -14,6 +14,7 @@ o groove-rig (o "state provider" do amplificador) pode confiar; mudanças nele p
 | `GET /ir` | Comandos aceitos, envios feitos e leituras da linha do IR e do botão do volume |
 | `POST /ir/send?cmd=volume_up` | Manda um comando ao amp pela linha do IR |
 | `POST /control?target=bass&dir=up` | Ajusta o amp direto, sem o cliente lidar com menus (ver "Ajustes diretos") |
+| `/wifi` | A rede Wi-Fi do Pico e a configuração sem cabo (`docs/wifi.md`). Para achar o Pico sem IP fixo: broadcast UDP `AMPLINK?` na porta 47800 |
 
 O JSON de `/state` e `/events` é o mesmo. Exemplo:
 

@@ -126,7 +126,8 @@ def load_proxy():
              "panel": types.SimpleNamespace(Panel=lambda: None),
              "lcd1602": types.SimpleNamespace(Lcd1602=FakeLcd),
              "ota": types.SimpleNamespace(in_trial=lambda: False, handle=None),
-             "web": types.SimpleNamespace(Publisher=None, wifi_task=None)}
+             "web": types.SimpleNamespace(Publisher=None),
+             "wifi": types.SimpleNamespace(Wifi=lambda **kw: None)}
     saved = {k: sys.modules.get(k) for k in stubs}
     sys.modules.update(stubs)
     run, asyncio.run = asyncio.run, lambda coro: coro.close()   # não roda o main()

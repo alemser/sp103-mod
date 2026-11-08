@@ -74,7 +74,9 @@ A "versão" é um código de 8 letras que muda sempre que algum arquivo muda.
 ## O que nunca vai pelo Wi-Fi
 
 - **`main.py`**: é o "porteiro" que faz a volta. Se ele estragasse, nada mais voltaria. Mudou o `main.py`? Só pelo cabo.
-- **`secrets.py`**: tem as senhas. Para trocar a senha do Wi-Fi ou da atualização, só pelo cabo.
+- **`secrets.py`**: tem a senha da atualização. Para trocá-la, só pelo cabo. (A rede Wi-Fi não fica mais aqui: fica no
+  `wifi.json`, trocada pela rede de configuração do Pico, `wifi.md`.)
+- **`wifi.json`**: a rede Wi-Fi salva. A atualização nunca mexe nele.
 - **`names.json`**: os textos personalizados ficam no Pico e são editados pela app.
 
 ## Segurança

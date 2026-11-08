@@ -41,6 +41,7 @@ botão Function ◄───(GP0 lê, GP1 só puxa para 0)── Pico 2 W
 | Comandar o amp | a app, aba Now, ou `curl -X POST "http://sp103.local/control?target=bass&dir=up"` (`docs/api-estado.md`) |
 | Ver o barramento | a app, aba Status |
 | Baixar o registro | `curl http://sp103.local/bus.csv` |
+| Configurar ou trocar a rede Wi-Fi | sem cabo: entrar na rede `SP103-XXXX` do Pico (senha `amplink-setup`) e abrir `http://192.168.4.1/` (`docs/wifi.md`) |
 | Atualizar o programa do Pico | `python3 tools/enviar.py` |
 | Testar no computador | `python3 tools/test_proxy.py` (e os outros `tools/test_*.py`); a ponte: `cd relay && make test` |
 
@@ -53,6 +54,7 @@ botão Function ◄───(GP0 lê, GP1 só puxa para 0)── Pico 2 W
 | [`docs/vu.md`](docs/vu.md) | O VU meter: a ponte, o protocolo, o que o display mostra, a configuração |
 | [`docs/trocar-de-placa.md`](docs/trocar-de-placa.md) | **Instalar a ponte** numa placa: fazer ao mudar a captura de placa ou gravar uma imagem nova |
 | [`docs/atualizacao-wifi.md`](docs/atualizacao-wifi.md) | Atualizar o Pico pelo Wi-Fi, com volta automática |
+| [`docs/wifi.md`](docs/wifi.md) | Configurar o Wi-Fi do Pico sem cabo (a rede própria dele) e achar o Pico na rede sem IP fixo |
 | [`docs/descobertas-protocolo.md`](docs/descobertas-protocolo.md) | Como o controlador fala com o display: comandos, telas e parte elétrica |
 | [`docs/bancada-ligacao.md`](docs/bancada-ligacao.md) | Display reserva na bancada (mesma ligação 4 bits do display do amp) |
 | [`docs/ligacao-analisador.md`](docs/ligacao-analisador.md) | Mapa de pinos do LCD e do T9311, ligação do analisador lógico |
@@ -61,7 +63,8 @@ botão Function ◄───(GP0 lê, GP1 só puxa para 0)── Pico 2 W
 
 ## Pastas
 
-- `firmware/`: o programa do Pico (MicroPython). O `main.py` e o `secrets.py` só vão pelo cabo.
+- `firmware/`: o programa do Pico (MicroPython). O `main.py` e o `secrets.py` só vão pelo cabo; a rede Wi-Fi fica no
+  `wifi.json`, gravado pela rede de configuração do Pico.
 - `relay/`: a ponte do VU (`sp103-vu-relay`, Go), que roda na placa com o groove-detector.
 - `tools/`: envio pelo Wi-Fi, testes no computador, leitura do registro e decodificador das capturas.
 - `captures/`: capturas `.lac` do analisador lógico, usadas pelos testes.

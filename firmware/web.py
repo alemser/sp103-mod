@@ -1,4 +1,4 @@
-"""Wi-Fi e servidor HTTP do Pico: publica o estado do amp na rede.
+"""Servidor HTTP do Pico: publica o estado do amp na rede (o Wi-Fi fica no wifi.py).
 
     GET /state    o estado em JSON
     GET /events   Server-Sent Events: um "data: {json}" a cada mudança
@@ -10,7 +10,6 @@
     outras        rotas extras, por prefixo: routes={"/update": ota.handle, "/bus": log.handle, "/device": device.handle}
 
 Uso (com asyncio):
-    asyncio.create_task(wifi_task(aviso))   # nunca trava nem levanta erro
     pub = Publisher(state, get_names=g, set_names=s)   # s(cfg) valida, guarda e aplica; levanta ValueError
     (routes: handler(req, writer) assíncrono; req = Request, ver abaixo; responde com reply())
     asyncio.create_task(pub.serve())
@@ -19,72 +18,9 @@ Uso (com asyncio):
 """
 
 import json
-import time
-import network
 import asyncio
 
-import secrets
 from listeners import make_room
-
-HOSTNAME = "sp103"
-
-
-async def wifi_task(on_first_result=None, quick_tries=3, timeout_s=15, retry_s=30):
-    """Conecta e mantém o Wi-Fi conectado, em segundo plano. Nunca levanta erro:
-    sem Wi-Fi, o resto do programa (o display) segue normal, só sem rede.
-
-    Logo depois de um reset, a primeira tentativa costuma falhar (status -1): o roteador
-    ainda "lembra" a conexão que o reset cortou. Por isso as primeiras tentativas são
-    rápidas (a cada 2 s); depois, uma a cada retry_s.
-
-    on_first_result(ok, info) é chamado uma vez: quando conecta, ou quando as tentativas
-    rápidas acabam sem conectar (info = IP, ou o motivo da falha).
-    """
-    wlan = None
-    tries = 0
-    reported = False
-    while True:
-        result = None
-        try:
-            if wlan is None:
-                network.hostname(HOSTNAME)
-                wlan = network.WLAN(network.STA_IF)
-                wlan.active(True)
-                wlan.config(pm=0xA11140)    # desliga a economia de energia: responde mais rápido
-            if not wlan.isconnected():
-                if tries:
-                    # Só nas tentativas seguintes: com o chip recém-ligado, um disconnect()
-                    # antes do connect() faz a primeira tentativa falhar (status -1).
-                    wlan.disconnect()
-                tries += 1
-                wlan.connect(secrets.WIFI_SSID, secrets.WIFI_PASSWORD)
-                t0 = time.time()
-                # status < 0 = falhou de vez (-1 falha, -2 rede não encontrada, -3 senha errada)
-                while not wlan.isconnected() and wlan.status() >= 0 and time.time() - t0 < timeout_s:
-                    await asyncio.sleep(0.25)
-                if wlan.isconnected():
-                    ip = wlan.ifconfig()[0]
-                    print("Wi-Fi ok: http://%s/device  (or http://%s.local/device)" % (ip, HOSTNAME))
-                    result = (True, ip)
-                else:
-                    print("Wi-Fi attempt %d failed (status %d)" % (tries, wlan.status()))
-                    result = (False, "status %d" % wlan.status())
-            elif not reported:
-                # Já conectado (programa reiniciado pelo mpremote, sem reset do chip de Wi-Fi).
-                ip = wlan.ifconfig()[0]
-                print("Wi-Fi ok: http://%s/device  (or http://%s.local/device)" % (ip, HOSTNAME))
-                result = (True, ip)
-        except Exception as e:              # chip de Wi-Fi com problema, senha ausente etc.
-            print("Wi-Fi error:", e)
-            result = (False, str(e))
-        if wlan is not None and wlan.isconnected():
-            tries = 0                       # se cair depois, recomeça com tentativas rápidas
-        if result and not reported and (result[0] or tries >= quick_tries):
-            reported = True
-            if on_first_result:
-                on_first_result(*result)
-        await asyncio.sleep(2 if 0 < tries < quick_tries else retry_s)
-
 
 CHUNK = 1024                    # o corpo vai em pedaços: o Wi-Fi do Pico tem pouca memória
 
