@@ -22,5 +22,5 @@ assert d["tone_db"] == {"min": -14, "max": 14, "step": 2}
 assert [i["name"] for i in d["inputs"]] == list(INPUTS)
 assert [i["id"] for i in d["inputs"]] == ["phono", "tuner", "tape_aux", "cd", "dvd", "dab"]
 assert d["display"] == {"columns": 16, "rows": 2}
-assert "config" in d["features"] and "control" in d["features"]
+assert "config" in d["features"] and "control" in d["features"] and "wifi_setup" in d["features"]
 print("tudo certo")

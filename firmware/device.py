@@ -13,7 +13,7 @@ MODEL = "Acoustic Solutions SP103"
 TONE_DB = 14                    # bass e treble: de -14 a 14
 TONE_STEP = 2                   # cada toque no amp muda 2 dB
 COLUMNS, ROWS = 16, 2
-FEATURES = ("tone", "balance", "loudness", "speakers", "config", "vu", "info_screens", "bus_log", "update",
+FEATURES = ("tone", "balance", "loudness", "speakers", "config", "vu", "info_screens", "bus_log", "update", "wifi_setup",
             "control")
 
 
