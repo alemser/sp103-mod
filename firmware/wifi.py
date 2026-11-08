@@ -176,7 +176,11 @@ class Wifi:
     async def _configure(self, ssid, psk):
         """O PUT /wifi: tenta a rede nova; se falhar, volta para a anterior e a rede de configuração fica aberta."""
         previous = self.saved()
-        ok, _ = await self._connect(ssid, psk)
+        ok, reason = await self._connect(ssid, psk)
+        if not ok and reason == REASONS[-1]:
+            # "connection failed" (status -1) às vezes é só a primeira tentativa: visto com o hotspot do celular
+            # em 2026-11-08, como no reset do chip. Senha errada e rede sumida não melhoram tentando de novo.
+            ok, reason = await self._connect(ssid, psk)
         if ok:
             self._save(ssid, psk)
             self.close_setup_at = time.time() + CLOSE_SETUP_AFTER_S
