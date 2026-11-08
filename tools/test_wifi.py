@@ -100,7 +100,7 @@ def fresh(name, saved=None, routers=None):
     FakeWLAN.routers = routers or {}
     net = wifi.Wifi(model="sp103", hostname="sp103", prefix="SP103", net_file=path)
     net.sta, net.ap = FakeWLAN("sta"), FakeWLAN("ap")
-    net.setup_ssid = "SP103-D85E"
+    net.name, net.setup_ssid = "SP103-D85E", "AmpLink-SP103-D85E"
     return net
 
 
@@ -164,11 +164,11 @@ assert fresh("nada").saved() is None
 
 net = fresh("primeira-vez")
 net._supervise()
-assert net.setup_open() and net.ap.cfg == {"ssid": "SP103-D85E", "key": "amplink-setup"}
+assert net.setup_open() and net.ap.cfg == {"ssid": "AmpLink-SP103-D85E", "key": "amplink-setup"}
 assert request(net, "GET", "/")[0] == 200
 assert "SP103-D85E" in request(net, "GET", "/")[1]
 status, body = request(net, "GET", "/wifi")
-assert status == 200 and body["setup"] == {"open": True, "ssid": "SP103-D85E"} and body["ssid"] == ""
+assert status == 200 and body["setup"] == {"open": True, "ssid": "AmpLink-SP103-D85E"} and body["ssid"] == ""
 assert request(net, "GET", "/wifi/networks")[1][0]["ssid"] == "Casa"
 assert json.loads(net.answer()) == {"name": "SP103-D85E", "model": "sp103", "ip": "192.168.4.1"}
 

@@ -4,7 +4,9 @@ A rede de casa fica no wifi.json (gravado pela configuração, nunca pelo OTA). 
 (WIFI_SSID e WIFI_PASSWORD), para os Picos instalados antes desta versão.
 
 Sem rede salva, ou sem conseguir conectar por OPEN_SETUP_AFTER_S, o Pico abre a rede de configuração
-"SP103-XXXX" (WPA2, senha SETUP_KEY, a mesma em todos os Picos; a app conhece) e continua tentando a rede salva.
+"AmpLink-SP103-XXXX" (WPA2, senha SETUP_KEY, a mesma em todos os Picos; a app conhece) e continua tentando a rede
+salva. Toda rede de configuração começa com SETUP_PREFIX: a app pede ao Android "uma rede que começa com AmpLink-" e
+serve para qualquer amp.
 Quem entra nela (a app, ou o navegador em http://192.168.4.1/) usa as rotas abaixo. Depois de conectar, a rede de
 configuração fecha sozinha em CLOSE_SETUP_AFTER_S, tempo para quem configurou ler o IP.
 
@@ -36,6 +38,7 @@ import socket
 import udp
 
 SETUP_KEY = "amplink-setup"
+SETUP_PREFIX = "AmpLink-"
 NET_FILE = "wifi.json"
 DISCOVERY_PORT = 47800
 OPEN_SETUP_AFTER_S = 120    # sem conectar por esse tempo (e com rede salva), abre a rede de configuração
@@ -102,7 +105,8 @@ class Wifi:
         self.quick_tries = quick_tries
         self.sta = None
         self.ap = None
-        self.setup_ssid = prefix
+        self.name = prefix              # "SP103-D85E" quando o chip liga: o nome na descoberta
+        self.setup_ssid = SETUP_PREFIX + prefix
         self.status = {"state": "idle", "detail": "", "ip": ""}
         self.pending = None             # (ssid, psk) do PUT /wifi, feito pelo task()
         self.close_setup_at = None      # time.time() em que a rede de configuração fecha
@@ -205,7 +209,8 @@ class Wifi:
                     self.ap = network.WLAN(network.AP_IF)
                     self.ap.active(False)           # pode ter ficado aberta de antes de um soft reset
                     mac = self.sta.config("mac")
-                    self.setup_ssid = "%s-%02X%02X" % (self.prefix, mac[-2], mac[-1])
+                    self.name = "%s-%02X%02X" % (self.prefix, mac[-2], mac[-1])
+                    self.setup_ssid = SETUP_PREFIX + self.name
                     asyncio.create_task(self._discovery())
                 if self.pending:
                     ssid, psk = self.pending
@@ -308,7 +313,7 @@ class Wifi:
             ip = self.sta.ifconfig()[0]
         else:
             ip = self.ap.ifconfig()[0] if self.setup_open() else ""
-        return json.dumps({"name": self.setup_ssid, "model": self.model, "ip": ip})
+        return json.dumps({"name": self.name, "model": self.model, "ip": ip})
 
     async def _discovery(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

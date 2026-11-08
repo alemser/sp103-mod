@@ -12,8 +12,10 @@ Decidido em 2026-11-08, depois de testar na bancada as duas formas:
 
 ## Como funciona
 
-1. **Sem rede salva**, o Pico abre na hora a rede de configuração **`SP103-XXXX`** (XXXX = o fim do endereço do chip).
-   A senha é **`amplink-setup`**, a mesma em todos os Picos; a app conhece.
+1. **Sem rede salva**, o Pico abre na hora a rede de configuração **`AmpLink-SP103-XXXX`** (XXXX = o fim do endereço
+   do chip). A senha é **`amplink-setup`**, a mesma em todos os Picos; a app conhece. Toda rede de configuração começa
+   com `AmpLink-` (o MR 780 vai abrir `AmpLink-MR780-XXXX`): a app pede ao Android uma rede com esse começo, sem
+   precisar da permissão de localização para procurar redes.
 2. **Com rede salva que não conecta** (senha do roteador trocada, roteador desligado), o Pico continua tentando a cada
    30 s e, depois de 2 minutos sem conseguir, abre também a rede de configuração.
 3. Quem entra na rede de configuração (a app, ou o navegador do celular em `http://192.168.4.1/`) escolhe a rede e

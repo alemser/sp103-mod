@@ -41,7 +41,7 @@ botão Function ◄───(GP0 lê, GP1 só puxa para 0)── Pico 2 W
 | Comandar o amp | a app, aba Now, ou `curl -X POST "http://sp103.local/control?target=bass&dir=up"` (`docs/api-estado.md`) |
 | Ver o barramento | a app, aba Status |
 | Baixar o registro | `curl http://sp103.local/bus.csv` |
-| Configurar ou trocar a rede Wi-Fi | sem cabo: entrar na rede `SP103-XXXX` do Pico (senha `amplink-setup`) e abrir `http://192.168.4.1/` (`docs/wifi.md`) |
+| Configurar ou trocar a rede Wi-Fi | sem cabo: entrar na rede `AmpLink-SP103-XXXX` do Pico (senha `amplink-setup`) e abrir `http://192.168.4.1/` (`docs/wifi.md`) |
 | Atualizar o programa do Pico | `python3 tools/enviar.py` |
 | Testar no computador | `python3 tools/test_proxy.py` (e os outros `tools/test_*.py`); a ponte: `cd relay && make test` |
 
