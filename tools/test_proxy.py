@@ -330,7 +330,9 @@ def check_info(path):
             kinds.append(k)
     ok(kinds == ["vu", "amp", "stylus", "vu"], "temporário: a tela do amp mostra a entrada (TUNER), a agulha, "
        "depois o VU: %s" % kinds)
-    at = {k: t for t, k, _ in reversed(changes) if isinstance(k, str)}
+    # A última ocorrência de cada tela é a relevante: há um VU antes da tela
+    # do amp e outro depois da agulha. A iteração normal deixa o último vencer.
+    at = {k: t for t, k, _ in changes if isinstance(k, str)}
     ok(4990 <= at["vu"] - at["stylus"] <= 5110, "a agulha fica 5 s: %d ms" % (at["vu"] - at["stylus"]))
 
     proxy = load_proxy()
