@@ -10,8 +10,7 @@ Ficam no arquivo names.json do Pico e são editados pela app (PUT /names):
                                                                      # layout: bars, deck, scale, kx393
      "info":   {"on": False, "mode": "temp",                            # telas de informação
                 "show": ["stylus", "quality"],                          # (screens.py, info.py)
-                "secs": 8, "clock": True,                               # quality: Bluetooth na DAB
-                "utc_offset": 0, "eu_dst": True, "source": "",          # source "" = a do VU
+                "secs": 8, "source": "",                                # quality: Bluetooth na DAB; source "" = a do VU
                 "turntable": ["PHONO", "TUNER"]}}                       # a agulha só nessas entradas
 
 Texto vazio (ou ausente) = o texto original do amp. As linhas das telas de
@@ -31,12 +30,13 @@ MAX_LEN = 16                    # uma linha do LCD
 SCREENS = ("boot", "about")
 VU_DEFAULT = {"on": False, "layout": "bars", "relay": ""}
 VU_LAYOUTS = ("bars", "deck", "scale", "kx393")   # os mesmos de vu.LAYOUTS
-INFO_DEFAULT = {"on": False, "mode": "temp", "show": ["stylus", "quality"], "secs": 8, "clock": True,
-                "utc_offset": 0, "eu_dst": True, "source": "", "turntable": ["PHONO", "TUNER"]}
+INFO_DEFAULT = {"on": False, "mode": "temp", "show": ["stylus", "quality"], "secs": 8, "source": "",
+                "turntable": ["PHONO", "TUNER"]}
 INFO_KINDS = ("stylus", "quality")      # os mesmos de screens.KINDS
 INFO_GONE = ("track", "pos", "side")    # telas que saíram (2026-11-07): ignoradas num names.json antigo
 INFO_SECS = (3, 60)
-INFO_OFFSET = (-12, 14)         # horas a partir do UTC
+# The standby clock was removed (2026-11-16): an old names.json or client may still send these; ignored.
+INFO_CLOCK_GONE = ("clock", "utc_offset", "eu_dst")
 
 
 def load():
@@ -116,10 +116,9 @@ def _info(info):
     if not isinstance(info, dict):
         raise ValueError("'info' must be a JSON object")
     out = dict(INFO_DEFAULT)
-    out.update(info)            # "fixed", "alert" e "scroll" de um names.json antigo: ignorados
-    for key in ("on", "clock", "eu_dst"):
-        if not isinstance(out[key], bool):
-            raise ValueError("info '%s' must be true or false" % key)
+    out.update(info)            # "fixed", "alert", "scroll" and the clock's keys from an old names.json: ignored
+    if not isinstance(out["on"], bool):
+        raise ValueError("info 'on' must be true or false")
     if out["mode"] not in ("temp", "fixed"):
         raise ValueError("the info mode must be temp or fixed")
     show = out["show"]
@@ -128,10 +127,6 @@ def _info(info):
     secs = out["secs"]
     if isinstance(secs, bool) or not isinstance(secs, int) or not INFO_SECS[0] <= secs <= INFO_SECS[1]:
         raise ValueError("the seconds per screen must be a whole number from %d to %d" % INFO_SECS)
-    offset = out["utc_offset"]
-    if isinstance(offset, bool) or not isinstance(offset, (int, float)) \
-            or not INFO_OFFSET[0] <= offset <= INFO_OFFSET[1] or offset * 4 != int(offset * 4):
-        raise ValueError("the UTC offset must be in hours, from %d to %d (quarters allowed)" % INFO_OFFSET)
     turntable = out["turntable"]
     if not isinstance(turntable, list) or any(k not in INPUTS for k in turntable):
         raise ValueError("info 'turntable' must be a list with some of: " + ", ".join(INPUTS))
@@ -139,7 +134,6 @@ def _info(info):
     if source is None or (source and not _is_ip(source)):
         raise ValueError("the info source must be an IP address, or empty to use the VU source")
     return {"on": out["on"], "mode": out["mode"], "show": [k for k in INFO_KINDS if k in show], "secs": secs,
-            "clock": out["clock"], "utc_offset": offset, "eu_dst": out["eu_dst"],
             "source": source, "turntable": [k for k in INPUTS if k in turntable]}
 
 

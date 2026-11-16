@@ -97,11 +97,6 @@ check(i.sock is None and not i.poll(200) and not i.fresh(200), "desligado: fecha
 check(screens.lr("Side A", "track 4/5") == "Side A track 4/5", "esquerda e direita em 16")
 check(screens.bar(0.62, 12) == chr(4) * 7 + chr(1) + " " * 4, "barra de 62 % em 12 células")
 check(screens.bar(0, 4) == "    " and screens.bar(1.5, 2) == chr(4) * 2, "barra vazia e cheia")
-check(screens._last_sunday(2026, 3) == 29 and screens._last_sunday(2026, 10) == 25, "últimos domingos de 2026")
-check(screens._last_sunday(2027, 10) == 31, "outubro de 2027: o próprio dia 31")
-check(screens.eu_summer((2026, 7, 1, 12)) and not screens.eu_summer((2026, 12, 1, 12)), "verão e inverno")
-check(not screens.eu_summer((2026, 3, 29, 0)) and screens.eu_summer((2026, 3, 29, 1)), "muda à 1h UTC em março")
-check(screens.eu_summer((2026, 10, 25, 0)) and not screens.eu_summer((2026, 10, 25, 1)), "e em outubro")
 
 
 def make(**kw):
@@ -123,9 +118,8 @@ i.feed(packet(time_a4(161, 544)[:9] + ["320", "95"]), 100)
 check(s.lines("stylus", 100)[0] == "Replace stylus  ", "agulha gasta: o aviso")
 i.feed(packet(time_a4(161, 544)[:9] + ["", ""]), 200)
 check(s.pick(200, False, True, "PHONO") is None, "sem os dados da agulha: a tela do amp")
-check(s.pick(200, True, False) == "clock", "standby: o relógio")
-s.configure(cfg(mode="fixed", clock=False))
-check(s.pick(400, True, False) is None, "standby sem o relógio: a tela do amp")
+check(s.pick(200, True, False) is None, "standby: the amp's own screen (no clock since 2026-11-16)")
+s.configure(cfg(mode="fixed"))
 check(s.pick(400 + info.STALE_MS, False, True) == "vu", "sem dados: o VU, se tiver música")
 
 i, s = make(mode="temp", secs=8, turntable=["TUNER"])
@@ -158,8 +152,8 @@ check(s.pick(80000, False, True) == "vu" and s.pick(80000, True, False) is None,
 
 # --- names.py: a configuração ------------------------------------------------------
 d = names.validate({})["info"]
-check(d == {"on": False, "mode": "temp", "show": ["stylus", "quality"], "secs": 8, "clock": True,
-            "utc_offset": 0, "eu_dst": True, "source": "", "turntable": ["PHONO", "TUNER"]},
+check(d == {"on": False, "mode": "temp", "show": ["stylus", "quality"], "secs": 8, "source": "",
+            "turntable": ["PHONO", "TUNER"]},
       "padrão: desligadas")
 old = cfg(mode="fixed", fixed="pos", show=["track", "pos", "side", "stylus"], alert=False, scroll=True)
 check(old["show"] == ["stylus"] and "fixed" not in old and "alert" not in old and "scroll" not in old,
@@ -210,12 +204,13 @@ check(s.pick(0, False, False, "DAB") is None, "temporário sem a tela marcada: n
 check(screens.GLYPHS[8 * screens.BT:] == screens.BT_GLYPH and screens.GLYPHS[:8 * screens.BT] ==
       screens.vu_meter.GLYPHS[:8 * screens.BT], "o símbolo do Bluetooth no desenho 7; os da barra ficam")
 check(cfg(show=["quality", "stylus"])["show"] == ["stylus", "quality"], "as telas marcadas ficam na ordem certa")
-check(cfg(utc_offset=5.5)["utc_offset"] == 5.5 and cfg(source=" 192.168.178.99 ")["source"] == "192.168.178.99",
-      "fuso com meia hora; IP com espaços")
+check(cfg(source=" 192.168.178.99 ")["source"] == "192.168.178.99", "IP com espaços")
+old_clock = cfg(clock=True, utc_offset=5.5, eu_dst=False)
+check(not any(k in old_clock for k in ("clock", "utc_offset", "eu_dst")), "the removed clock's keys are accepted and dropped")
 check(names.validate({"info": {"on": True}})["vu"]["on"] is False, "as telas não mexem no VU")
 for bad in ({"mode": "always"}, {"show": ["stylus", "lyrics"]}, {"show": "stylus"},
-            {"secs": 2}, {"secs": 8.5}, {"secs": True}, {"utc_offset": 15}, {"utc_offset": 1.1},
-            {"source": "oceano.local"}, {"on": "yes"}, {"clock": 1}, {"turntable": ["RADIO"]}, {"turntable": "TUNER"}):
+            {"secs": 2}, {"secs": 8.5}, {"secs": True},
+            {"source": "oceano.local"}, {"on": "yes"}, {"turntable": ["RADIO"]}, {"turntable": "TUNER"}):
     try:
         names.validate({"info": bad})
         check(False, "recusa %r" % bad)

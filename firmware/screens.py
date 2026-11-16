@@ -10,7 +10,7 @@ redesenho do controlador). São duas telas, cada uma na sua entrada:
 
 Em ordem:
 
-1. Standby: o relógio, se ligado; senão, a tela do amp (apagada).
+1. Standby: the amp's own screen (blank). (The standby clock was removed on 2026-11-16: not useful.)
 2. Modo fixo: a tela marcada da entrada de agora, o tempo todo. O VU não entra.
 3. Modo temporário: a tela marcada entra por "secs". A agulha, quando o amp passa para
    uma entrada do toca-discos e quando o disco começa a tocar; a qualidade, quando o
@@ -31,9 +31,6 @@ from amp_state import STREAMING_INPUT
 
 KINDS = ("stylus", "quality")
 STYLUS_WARN = 90                # % de desgaste: "Replace stylus"
-DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-MIN_YEAR = 2025                 # antes disso, o relógio do Pico ainda não foi acertado
 BT = 7                          # o código do símbolo do Bluetooth (ᛒ) nos desenhos próprios
 BT_GLYPH = bytes((0x04, 0x06, 0x15, 0x0E, 0x0E, 0x15, 0x06, 0x04))
 GLYPHS = vu_meter.GLYPHS[:8 * BT] + BT_GLYPH
@@ -44,11 +41,6 @@ def lr(left, right):
     """Texto à esquerda e à direita numa linha de 16."""
     gap = 16 - len(left) - len(right)
     return (left + " " * max(1, gap) + right)[:16]
-
-
-def center(text):
-    left = (16 - len(text)) // 2
-    return (" " * left + text + " " * 16)[:16]
 
 
 def khz(rate):
@@ -73,37 +65,10 @@ def bar(fraction, cells):
     return "".join(out)
 
 
-def _last_sunday(year, month):
-    """Dia do último domingo de um mês de 31 dias (março e outubro)."""
-    # Dias desde 1970-01-01 (uma quinta) até o dia 31: o algoritmo "days from civil".
-    y = year - (month <= 2)
-    era = y // 400
-    yoe = y - era * 400
-    doy = (153 * (month + (-3 if month > 2 else 9)) + 2) // 5 + 30
-    days = era * 146097 + yoe * 365 + yoe // 4 - yoe // 100 + doy - 719468
-    weekday = (days + 3) % 7               # 0 = segunda
-    return 31 - (weekday + 1) % 7
-
-
-def eu_summer(t):
-    """Horário de verão europeu: do último domingo de março ao de outubro, à 1h UTC."""
-    y, m, d, h = t[0], t[1], t[2], t[3]
-    if 3 < m < 10:
-        return True
-    if m == 3:
-        ls = _last_sunday(y, 3)
-        return d > ls or (d == ls and h >= 1)
-    if m == 10:
-        ls = _last_sunday(y, 10)
-        return d < ls or (d == ls and h < 1)
-    return False
-
-
 class Screens:
     def __init__(self, info):
         self.info = info
-        self.cfg = {"on": False, "mode": "temp", "show": list(KINDS), "secs": 8, "clock": True,
-                    "utc_offset": 0, "eu_dst": True, "turntable": []}
+        self.cfg = {"on": False, "mode": "temp", "show": list(KINDS), "secs": 8, "turntable": []}
         self.seen_stream = 0
         self.quality_at = None          # quando a tela "quality" entrou (modo temporário)
         self.stylus_at = None           # quando a tela "stylus" entrou (modo temporário)
@@ -144,15 +109,6 @@ class Screens:
             return None
         return STREAM_NAMES.get(self.info.data["stream"])
 
-    def _clock_time(self):
-        t = time.time()
-        if time.gmtime(t)[0] < MIN_YEAR:
-            return None
-        t += int(self.cfg["utc_offset"] * 3600)
-        if self.cfg["eu_dst"] and eu_summer(time.gmtime(time.time())):
-            t += 3600
-        return time.gmtime(t)
-
     def pick(self, now, standby, vu_active, amp_input=None):
         """A tela de agora: "vu", uma das telas de informação, ou None (a tela do amp)."""
         self.input = amp_input
@@ -167,7 +123,7 @@ class Screens:
     def _pick(self, now, standby, vu_active):
         cfg, info = self.cfg, self.info
         if standby:
-            return "clock" if cfg["on"] and cfg["clock"] and self._clock_time() else None
+            return None
         if not cfg["on"] or not info.fresh(now):
             return "vu" if vu_active else None
         quality, stylus = self._has("quality"), self._has("stylus")
@@ -202,12 +158,6 @@ class Screens:
             if d["bit_depth"]:
                 fmt.append("%db" % d["bit_depth"])
             l2 = lr(" ".join(fmt), "%dk" % d["bitrate"] if d["bitrate"] else "")
-        elif key == "clock":
-            t = self._clock_time()
-            if t is None:
-                return " " * 16, " " * 16
-            l1 = center("%02d:%02d" % (t[3], t[4]))
-            l2 = center("%s %d %s" % (DAYS[t[6]], t[2], MONTHS[t[1] - 1]))
         else:
             l1 = l2 = ""
         return (l1 + " " * 16)[:16], (l2 + " " * 16)[:16]

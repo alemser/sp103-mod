@@ -341,8 +341,7 @@ def check_info(path):
     loop = proxy.listen()
     for _ in range(3000):
         Clock.us += loop.send(None) * 1000
-    clock = proxy.lcd.lines
-    ok(proxy.own == "clock" and clock[0].strip().count(":") == 1, "standby: o relógio %r" % (clock,))
+    ok(proxy.own != "clock", "standby: no clock any more (removed 2026-11-16): %r" % (proxy.own,))
     return fails
 
 

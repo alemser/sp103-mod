@@ -12,7 +12,7 @@ Cada tela completa do controlador é reconstruída (hd44780.py), vai para o leit
 Com o VU ligado na configuração (vu.py), as duas linhas viram as barras L e R enquanto houver
 música; cada redesenho do controlador traz a tela do amp de volta por 3 s. Com as telas de
 informação ligadas (info.py recebe, screens.py escolhe), o display mostra também a agulha
-(no toca-discos), a qualidade do Bluetooth (na DAB) e o relógio no standby.
+(no toca-discos), e a qualidade do Bluetooth (na DAB). The standby clock was removed on 2026-11-16.
 
 Publica o estado na rede (web.py; o cliente é a app do repositório amp-link), com /bus e
 atualização pelo Wi-Fi, como a escuta. Sem Wi-Fi, o display continua funcionando.
@@ -60,7 +60,7 @@ QUIET_US = 2000
 REFRESH_MS = 30_000                     # redesenha tudo de vez em quando (ruído nos fios)
 AMP_HOLD_MS = 3000                      # com o VU ligado, a tela do amp fica 3 s depois de cada redesenho
 PICK_MS = 100                           # escolhe a tela no máximo a cada 100 ms (ou a cada quadro/pacote)
-OWN_REDRAW_MS = 250                     # uma tela de informação é recalculada a cada 250 ms (relógios, rolagem)
+OWN_REDRAW_MS = 250                     # uma tela de informação é recalculada a cada 250 ms (scrolling)
 CLOCK_EVERY_S = 6 * 3600                # acerta o relógio pela internet a cada 6 h
 D7 = 1 << 10                            # o D7 na palavra do sniffer (hd44780.py)
 
