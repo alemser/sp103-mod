@@ -1,3 +1,3 @@
-module github.com/alemser/sp103-display-proxy/relay
+module github.com/alemser/sp103-mod/relay
 
 go 1.22

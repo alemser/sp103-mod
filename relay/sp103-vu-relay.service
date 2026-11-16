@@ -1,6 +1,6 @@
 [Unit]
 Description=sp103-vu-relay — VU do groove-detector para o display do SP103 (UDP)
-Documentation=https://github.com/alemser/sp103-display-proxy
+Documentation=https://github.com/alemser/sp103-mod
 After=groove-detector.service network-online.target
 Wants=network-online.target
 
