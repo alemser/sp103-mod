@@ -1,7 +1,7 @@
 """Servidor HTTP do Pico: publica o estado do amp na rede (o Wi-Fi fica no wifi.py).
 
     GET /state    o estado em JSON
-    GET /events   Server-Sent Events: um "data: {json}" a cada mudança
+    GET /events   Server-Sent Events: um "data: {json}" quando muda (no máximo 4 por segundo)
     GET /names    os textos personalizados (nomes das entradas e telas de inicialização)
     PUT /names    troca os textos: {"inputs": {"TUNER": "Rega Planar 2"}, "boot": [...], "about": [...],
                   "vu": {"on": true, "layout": "bars", "relay": "192.168.1.50"},
@@ -23,6 +23,11 @@ import asyncio
 from listeners import make_room
 
 CHUNK = 1024                    # o corpo vai em pedaços: o Wi-Fi do Pico tem pouca memória
+# /events: no máximo um estado a cada EVENT_GAP_S, sempre o mais recente. Mandar um a cada mudança
+# de tela (girar o volume dá dezenas por segundo) enche a memória do lwIP, e aí cada escrita trava
+# o Pico por 10 s (issue #2): o menu do Function fecha antes da tecla chegar.
+EVENT_GAP_S = 0.25
+PING_S = 1                      # o groove-rig desiste depois de 5 s sem nada
 
 
 class Request:
@@ -66,18 +71,15 @@ class Publisher:
         self.routes = routes or {}
         self.listeners = []             # conexões abertas em /events: (ip, writer), ver listeners.py
         self.served = 0                 # pedidos respondidos desde que o Pico ligou
+        self.version = 0                # sobe a cada changed(); cada ouvinte guarda o último que enviou
 
     def _json(self):
         return json.dumps(self.state.to_dict())
 
     def changed(self):
-        """Avisa todos os ouvintes de /events (chamar depois de cada mudança)."""
-        msg = ("data: " + self._json() + "\n\n").encode()
-        for _, w in self.listeners:
-            try:
-                w.write(msg)
-            except Exception:
-                pass                    # a conexão caiu: o laço dela vai removê-la
+        """Marca que o estado mudou (chamar depois de cada mudança). Quem envia é o laço de cada
+        ouvinte em _events(), no máximo um estado a cada EVENT_GAP_S, sempre o mais recente."""
+        self.version += 1
 
     async def serve(self):
         await asyncio.start_server(self._client, "0.0.0.0", self.port)
@@ -146,12 +148,23 @@ class Publisher:
         writer.write(("data: " + self._json() + "\n\n").encode())   # estado atual logo de cara
         entry = (ip, writer)
         self.listeners.append(entry)
+        sent = self.version
+        quiet = 0
         try:
             while entry in self.listeners:      # fora da lista = outra conexão tomou o lugar
-                await writer.drain()    # envia o que changed() escreveu; falha se a conexão caiu
-                await asyncio.sleep(1)
-                if entry in self.listeners:
-                    writer.write(b": ping\n\n")   # comentário SSE: mantém a conexão viva
+                await writer.drain()            # falha se a conexão caiu
+                await asyncio.sleep(EVENT_GAP_S)
+                if entry not in self.listeners:
+                    break
+                if self.version != sent:
+                    sent = self.version
+                    quiet = 0
+                    writer.write(("data: " + self._json() + "\n\n").encode())
+                else:
+                    quiet += 1
+                    if quiet * EVENT_GAP_S >= PING_S:
+                        quiet = 0
+                        writer.write(b": ping\n\n")   # comentário SSE: mantém a conexão viva
         except Exception:
             pass
         finally:
