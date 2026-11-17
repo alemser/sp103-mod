@@ -17,7 +17,7 @@ IP:
    make -C relay deploy HOST=user@ip
    ```
 
-2. In the app, Display tab, put the board's IP in **VU source (IP)**. The Pico does not resolve `.local` names.
+2. In the app, the amp's "VU meter" settings, put the board's IP in **Source (the VU relay's IP)**. The Pico does not resolve `.local` names.
 
 3. Check, with music playing:
 

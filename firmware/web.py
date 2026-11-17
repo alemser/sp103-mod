@@ -1,20 +1,17 @@
-"""The Pico's HTTP server: publishes the amp's state on the network (Wi-Fi is in wifi.py).
+"""The Pico's HTTP server: publishes the device's state on the network (Wi-Fi is in wifi.py).
+
+This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
 
     GET /state    the state as JSON
-    GET /events   Server-Sent Events: one "data: {json}" on change (at most 4 per second)
-    GET /names    the custom texts (input names and boot screens)
-    PUT /names    replaces the texts: {"inputs": {"TUNER": "Rega Planar 2"}, "boot": [...], "about": [...],
-                  "vu": {"on": true, "layout": "bars", "relay": "192.168.1.50"},
-                   "info": {"on": true, "mode": "temp", ...}}      (info screens)
-                  (empty text = original; see names.py)
-    others        extra routes, by prefix: routes={"/update": ota.handle, "/bus": log.handle, "/device": device.handle}
+    GET /events   Server-Sent Events: one "data: {json}" on change (at most 4 per second, always the latest)
+    others        extra routes, by prefix: routes={"/update": ota.handle, "/device": device.handle}
 
 Use (with asyncio):
-    pub = Publisher(state, get_names=g, set_names=s)   # s(cfg) validates, saves and applies; raises ValueError
+    pub = Publisher(state, routes={...})
     (routes: async handler(req, writer); req = Request, below; answers with reply())
     asyncio.create_task(pub.serve())
     ...
-    pub.changed()      # call after every state.update() that returned True
+    pub.changed()      # call after every state change
 """
 
 import json
@@ -23,9 +20,8 @@ import asyncio
 from listeners import make_room
 
 CHUNK = 1024                    # the body goes in chunks: the Pico's Wi-Fi has little memory
-# /events: at most one state every EVENT_GAP_S, always the latest. Sending one on every screen
-# change (turning the volume gives dozens per second) fills lwIP's memory, and then each write
-# stalls the Pico for 10 s (issue #2): the Function menu closes before the key arrives.
+# /events: at most one state every EVENT_GAP_S, always the latest. Sending one on every change (turning the SP103's
+# volume gives dozens per second) fills lwIP's memory, and then each write stalls the Pico for 10 s (SP103 issue #2).
 EVENT_GAP_S = 0.25
 PING_S = 1                      # groove-rig gives up after 5 s of silence
 
@@ -51,7 +47,7 @@ async def reply(writer, status, ctype, body):
                   "Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
                   % (status, ctype, len(body))).encode())
     await writer.drain()
-    # In chunks: a large answer in one go squeezes the Wi-Fi's memory (issue #2).
+    # In chunks: a large answer in one go squeezes the Wi-Fi's memory (SP103 issue #2).
     for i in range(0, len(body), CHUNK):
         writer.write(body[i:i + CHUNK])
         await writer.drain()
@@ -62,11 +58,8 @@ async def reply_json(writer, obj, status="200 OK"):
 
 
 class Publisher:
-    def __init__(self, state, get_names=None, set_names=None, port=80, routes=None, names_extra=None):
+    def __init__(self, state, port=80, routes=None):
         self.state = state
-        self.get_names = get_names
-        self.set_names = set_names
-        self.names_extra = names_extra  # extra fields in GET /names (e.g. the proxy's counters)
         self.port = port
         self.routes = routes or {}
         self.listeners = []             # open /events connections: (ip, writer), see listeners.py
@@ -77,8 +70,8 @@ class Publisher:
         return json.dumps(self.state.to_dict())
 
     def changed(self):
-        """Marks the state as changed (call after each change). Each listener's loop in _events()
-        does the sending, at most one state every EVENT_GAP_S, always the latest."""
+        """Marks the state as changed (call after each change). Each listener's loop in _events() does the sending, at
+        most one state every EVENT_GAP_S, always the latest."""
         self.version += 1
 
     async def serve(self):
@@ -101,10 +94,7 @@ class Publisher:
             route = path.split("/")[1].split(".")[0]    # "/bus.csv" -> "bus"; "/update/x" -> "update"
             self.served += 1
 
-            if path == "/names":
-                await self._names(writer, req.method,
-                                  await reader.readexactly(req.length) if req.length else b"")
-            elif path == "/state":
+            if path == "/state":
                 await reply(writer, "200 OK", "application/json", self._json().encode())
             elif path == "/events":
                 await self._events(writer)
@@ -120,22 +110,6 @@ class Publisher:
             await writer.wait_closed()
         except Exception:
             pass
-
-    async def _names(self, writer, method, body):
-        import names
-        status, answer = "200 OK", None
-        if method == "PUT" and self.set_names:
-            try:
-                self.set_names(json.loads(body))
-            except ValueError as e:     # invalid JSON or text rejected by names.validate
-                status, answer = "400 Bad Request", {"error": str(e)}
-        if answer is None:
-            answer = {"config": self.get_names(), "inputs": names.INPUTS,
-                      "defaults": {"boot": ["ACOUSTIC", "SOLUTIONS"],
-                                   "about": ["Amplifier SP103", "SW version 1.0"]}}
-            if self.names_extra:
-                answer.update(self.names_extra())
-        await reply_json(writer, answer, status)
 
     async def _events(self, writer):
         writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"

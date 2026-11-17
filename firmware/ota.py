@@ -1,21 +1,21 @@
-"""Firmware update over Wi-Fi, with a password and automatic rollback.
+"""Firmware update over Wi-Fi, with automatic rollback.
 
-On the computer, tools/enviar.py uses this. Password-protected requests carry the
-header "X-Password: <secrets.UPDATE_PASSWORD>" (without that line in secrets.py,
-updates are off).
+This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
 
-    GET  /update            state: version, files (sha256), staged files
-    PUT  /update/<name>.py  receives a file into new/ (checks its syntax)      [password]
-    DELETE /update/<name>.py  marks a file for deletion at the next apply      [password]
-    POST /update/cancel     drops what was received and not applied            [password]
-    POST /update/apply      keeps the running version in old/, applies new/, restarts [password]
+Used by tools/enviar.py on the computer and by the DeviceLink app (docs/contract-v2.md). No password: the routes are on
+the home LAN only, and a bad version rolls itself back.
+
+    GET    /update            state: version, files (sha256), staged files
+    PUT    /update/<name>.py  receives a file into new/ (checks its syntax)
+    DELETE /update/<name>.py  marks a file for deletion at the next apply
+    POST   /update/cancel     drops what was received and not applied
+    POST   /update/apply      keeps the running version in old/, applies new/, restarts
+    POST   /update/rollback   goes back to the version in old/ and restarts
 
 Deleting also goes through old/: if the new version fails, main.py brings the file back.
-    POST /update/rollback   goes back to the version in old/ and restarts      [password]
 
-After apply the new version is on trial (update.json, state "trial"). escuta.py
-calls confirm() once it proves healthy; if it doesn't, main.py restores the
-previous version (see main.py, which only changes over USB).
+After apply the new version is on trial (update.json, state "trial"). The bridge program calls confirm() once it proves
+healthy; if it doesn't, main.py restores the previous version (see main.py, which only changes over USB).
 """
 
 import os
@@ -25,13 +25,12 @@ import asyncio
 import machine
 from binascii import hexlify
 
-import secrets
 from web import reply_json
 
 MARKER = "update.json"          # the same names as main.py
 OLD = "old"
 NEW = "new"
-LOCKED = ("main.py", "secrets.py")   # USB only: the gatekeeper and the passwords
+LOCKED = ("main.py", "secrets.py")   # USB only: the gatekeeper and the secrets
 DELETE = ".del"                 # new/<name>.py.del = delete <name>.py at apply
 
 
@@ -102,7 +101,7 @@ def _clear(folder):
 
 
 def _program(folder=""):
-    """The program's files in a folder (secrets.py is left out: it holds passwords)."""
+    """The program's files in a folder (secrets.py is left out: it holds secrets)."""
     return [n for n in _ls(folder) if n.endswith(".py") and n != "secrets.py"]
 
 
@@ -111,8 +110,8 @@ def _files(folder=""):
 
 
 def version(files):
-    """A short code that changes whenever a program file changes (except main.py, which
-    doesn't go to old/, so the kept previous version has the same code it had before)."""
+    """A short code that changes whenever a program file changes (except main.py, which doesn't go to old/, so the
+    kept previous version has the same code it had before)."""
     h = hashlib.sha256()
     for name in sorted(files):
         if name in LOCKED:
@@ -125,7 +124,7 @@ _current = None                 # the program only changes by restarting: comput
 
 
 async def current_version():
-    """status()'s version, without stalling the listener: reading every file in one go takes about 0.6 s."""
+    """status()'s version, without stalling the bridge: reading every file in one go takes about 0.6 s."""
     global _current
     if _current is None:
         files = {}
@@ -141,7 +140,7 @@ def status():
     files = _files()
     return {"version": version(files), "state": m.get("state", "ok"), "why": m.get("why"),
             "previous": version(_files(OLD)) if _ls(OLD) else None, "files": files,
-            "staged": _ls(NEW), "enabled": hasattr(secrets, "UPDATE_PASSWORD"), "can_delete": True}
+            "staged": _ls(NEW), "enabled": True, "can_delete": True}
 
 
 def _valid_name(name):
@@ -151,8 +150,8 @@ def _valid_name(name):
 
 
 async def _discard(req):
-    """Reads and drops the request body: answering without reading it drops the
-    connection and the computer never sees the error message."""
+    """Reads and drops the request body: answering without reading it drops the connection and the client never
+    sees the error message."""
     left = req.length
     while left > 0:
         chunk = await req.reader.read(min(1024, left))
@@ -229,7 +228,7 @@ def _apply():
 
 
 async def _reset_soon():
-    await asyncio.sleep(1)              # gives the answer time to reach the computer
+    await asyncio.sleep(1)              # gives the answer time to reach the client
     machine.reset()
 
 
@@ -237,15 +236,7 @@ async def handle(req, writer):
     """Route /update (see web.Publisher)."""
     if req.method == "GET" and req.path == "/update":
         return await reply_json(writer, status())
-    password = getattr(secrets, "UPDATE_PASSWORD", None)
-    if not password or req.headers.get("x-password") != password:
-        await _discard(req)
-    if not password:
-        return await reply_json(writer, {"error": "updates are off: no UPDATE_PASSWORD in secrets.py"},
-                                "403 Forbidden")
-    if req.headers.get("x-password") != password:
-        await asyncio.sleep(1)          # slows down password guessing
-        return await reply_json(writer, {"error": "wrong password"}, "403 Forbidden")
+    # No password (contract v2, decided 2026-11-16): home LAN only, and a bad version rolls itself back.
     action = req.path[len("/update/"):]
     try:
         if req.method == "PUT":

@@ -46,6 +46,7 @@ import names
 import device
 import ota
 import screens as screens_mod
+import settings
 import sp103_screens as s
 import vu as vu_meter
 from amp_state import AmpState
@@ -77,7 +78,9 @@ bus = Bus()
 # controller writes others.
 bus.lcd.cgram[:] = bytes(b for rows in s.CGRAM for b in rows)
 log = BusLog(bus)
-net = Wifi(model="sp103", hostname="sp103", prefix="SP103")   # home network, setup and discovery
+net = Wifi(model=device.NAME, hostname=device.NAME, prefix=device.NAME.upper(),   # home network, setup, discovery
+           label=device.MODEL, kind=device.KIND, api=device.API)
+device.net = net
 pub = None
 wifi_ok = False
 listen_ticks = 0                        # listener loop count: shows it has not hung
@@ -163,7 +166,7 @@ def show_own(key, ms, full=False):
 
 
 def set_texts(cfg):
-    """Called by PUT /names: validates, saves to flash and applies at once."""
+    """Called by PATCH /settings and PUT /names (settings.py): validates, saves to flash and applies at once."""
     global texts
     texts = names.validate(cfg)
     names.save(texts)
@@ -309,10 +312,10 @@ async def confirm_update():
 
 async def main():
     global pub
-    pub = Publisher(state, get_names=lambda: texts, set_names=set_texts, names_extra=status,
-                    routes={"/update": ota.handle, "/bus": log.handle, "/device": device.handle,
-                            "/ir": remote.handle, "/control": control.handle,
-                            "/wifi": net.handle, "/": net.page})
+    config = settings.Routes(lambda: texts, set_texts, status).handle
+    pub = Publisher(state, routes={"/settings": config, "/names": config, "/update": ota.handle, "/bus": log.handle,
+                                   "/device": device.handle, "/ir": remote.handle, "/control": control.handle,
+                                   "/wifi": net.handle, "/": net.page})
     log.clear(time.ticks_ms())
     asyncio.create_task(net.task(wifi_result))
     await asyncio.sleep(0.1)            # Wi-Fi starts before the server opens the socket

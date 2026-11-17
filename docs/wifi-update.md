@@ -1,24 +1,20 @@
 # Updating the Pico's program over Wi-Fi
 
 With the Pico installed inside the amp, the USB cable is hard to use (and with the VSYS wire connected, it is even dangerous: see
-`installation.md`, "USB rule"). So the new program goes over Wi-Fi, with a password, and the Pico **goes back on its own to the
-previous version** if the new one does not work.
+`installation.md`, "USB rule"). So the new program goes over Wi-Fi, and the Pico **goes back on its own to the previous
+version** if the new one does not work. It can be sent from the computer (`tools/enviar.py`) or from the DeviceLink app,
+which installs the latest GitHub release of this repository.
 
-The newer bridges' shared base now takes updates over Wi-Fi without a password. This SP103 firmware still has its own
-`firmware/ota.py`, which requires the password described here.
+**No password since 2026-11-17** (version 973fed99): `ota.py`, `enviar.py` and the other shared files now come from the
+bridges' shared base (amp-link `firmware-base/`, copied with `copiar.py --skip firmware/main.py`), as decided for
+contract v2. Before that, every request carried an `X-Password` header; the history below mentions it.
 
 Programs: `firmware/ota.py` (on the Pico, receives), `firmware/main.py` (on the Pico, decides whether to roll back) and `tools/enviar.py` (on the
 computer, sends).
 
 ## Preparing (once only, over the cable)
 
-1. In `firmware/secrets.py` on the computer, the password line (it is already there, with a random password):
-
-   ```python
-   UPDATE_PASSWORD = "..."   # any text; enviar.py reads it from here
-   ```
-
-2. With the Pico on USB (and the VSYS wire disconnected, if it is in the amp), send the files:
+1. With the Pico on USB (and the VSYS wire disconnected, if it is in the amp), send the files:
 
    ```sh
    cd firmware
@@ -70,6 +66,7 @@ python3 tools/enviar.py --status           # current version, state and saved ve
 python3 tools/enviar.py --rollback         # go back to the saved version (the one before the last update)
 python3 tools/enviar.py proxy.py           # send only this file (if it changed; deletes nothing)
 python3 tools/enviar.py --host 192.168.178.108    # if sp103.local does not work
+python3 tools/enviar.py --publish          # make the GitHub release the app updates from (needs gh)
 ```
 
 The old Portuguese flags (`--estado`, `--voltar`, `--forcar`) still work.
@@ -79,17 +76,16 @@ The "version" is an 8-letter code that changes whenever any file changes.
 ## What never goes over Wi-Fi
 
 - **`main.py`**: it is the "gatekeeper" that does the rollback. If it broke, nothing would roll back any more. Changed `main.py`? Cable only.
-- **`secrets.py`**: holds the update password. To change it, cable only. (The Wi-Fi network no longer lives here: it lives in
+- **`secrets.py`**: optional now (it held the update password until 2026-11-17). Cable only. (The Wi-Fi network lives in
   `wifi.json`, changed through the Pico's setup network, `wifi.md`.)
 - **`wifi.json`**: the saved Wi-Fi network. The update never touches it.
 - **`names.json`**: the custom texts stay on the Pico and are edited by the app.
 
 ## Security
 
-- The password goes in the `X-Password` header, unencrypted (plain HTTP). On the home network that is enough. Use a password that
-  is not used for anything else.
-- A wrong password takes 1 s to be refused (to slow down anyone guessing).
-- Without the `UPDATE_PASSWORD` line in the Pico's `secrets.py`, updates are off.
+- No password: the routes answer on the home network only, like the rest of the bridge, and a bad version rolls itself back
+  (contract v2, "Updates from the app"). `main.py` and `secrets.py` are refused over Wi-Fi.
+- Until 2026-11-17 the password went in the `X-Password` header, and a wrong one took 1 s to be refused.
 
 ## Tested
 

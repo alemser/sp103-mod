@@ -1,6 +1,6 @@
 # VU meter on the amp's display
 
-With the VU meter turned on in the app (Display tab), the display's two lines become the bars for the left (L) and right
+With the VU meter turned on in the app (the amp's "VU meter" settings), the display's two lines become the bars for the left (L) and right
 (R) channels **while music is playing**. Since 2026-10-29. Visual proposal: <https://claude.ai/artifact/6Zrty8KCsb3ZRsa7Uh2Ax7>.
 
 ## Data path
@@ -55,7 +55,7 @@ place of the amp's bar glyphs; when going back to the amp's screen, the Pico wri
 | Yamaha KX-393 (`kx393`) | the deck's meter: L and R on line 1, no letters (L on top, R below), one segment per cell on the deck's scale, from −30 to +8, in 2 dB steps near 0. The deck's 0 sits 10 dB below the top; the segments above it are taller. Line 2 is the ruler `30 17 10 4 0 4 8`. The peak is a lone segment; the clip lights the last one | 16 | 6 (`vu.KX_GLYPHS`) |
 
 
-## Settings (app, Display tab)
+## Settings (app, "VU meter" section; ids `vu.on`, `vu.layout`, `vu.relay` in `/settings`)
 
 | Field | Default | Range |
 |---|---|---|

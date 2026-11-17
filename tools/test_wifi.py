@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests the Pico's Wi-Fi (firmware/wifi.py) on the computer, with a fake Wi-Fi chip.
 
+This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+
     python3 tools/test_wifi.py
 """
 
@@ -98,9 +100,9 @@ def fresh(name, saved=None, routers=None):
         with open(path, "w") as f:
             json.dump(saved, f)
     FakeWLAN.routers = routers or {}
-    net = wifi.Wifi(model="sp103", hostname="sp103", prefix="SP103", net_file=path)
+    net = wifi.Wifi(model="demo", hostname="demo", prefix="DEMO", net_file=path)
     net.sta, net.ap = FakeWLAN("sta"), FakeWLAN("ap")
-    net.name, net.setup_ssid = "SP103-D85E", "AmpLink-SP103-D85E"
+    net.name, net.setup_ssid = "DEMO-D85E", "AmpLink-DEMO-D85E"
     return net
 
 
@@ -164,13 +166,22 @@ assert fresh("nada").saved() is None
 
 net = fresh("primeira-vez")
 net._supervise()
-assert net.setup_open() and net.ap.cfg == {"ssid": "AmpLink-SP103-D85E", "key": "amplink-setup"}
+assert net.setup_open() and net.ap.cfg == {"ssid": "AmpLink-DEMO-D85E", "key": "amplink-setup"}
 assert request(net, "GET", "/")[0] == 200
-assert "SP103-D85E" in request(net, "GET", "/")[1]
+assert "DEMO-D85E" in request(net, "GET", "/")[1]
 status, body = request(net, "GET", "/wifi")
-assert status == 200 and body["setup"] == {"open": True, "ssid": "AmpLink-SP103-D85E"} and body["ssid"] == ""
+assert status == 200 and body["setup"] == {"open": True, "ssid": "AmpLink-DEMO-D85E"} and body["ssid"] == ""
 assert request(net, "GET", "/wifi/networks")[1][0]["ssid"] == "Casa"
-assert json.loads(net.answer()) == {"name": "SP103-D85E", "model": "sp103", "ip": "192.168.4.1"}
+assert json.loads(net.answer()) == {"name": "DEMO-D85E", "model": "demo", "ip": "192.168.4.1"}
+# The full name and the kind only appear when the bridge provides them: without them, the answer is as before.
+net.label, net.kind = "Demo Player", "cd_player"
+assert json.loads(net.answer()) == {"name": "DEMO-D85E", "model": "demo", "ip": "192.168.4.1",
+                                    "label": "Demo Player", "kind": "cd_player"}
+# Contract v2 bridges also say their api, and answer the DeviceLink probe as well as the old one.
+net.api = 2
+assert json.loads(net.answer())["api"] == 2
+assert wifi.PROBES == (b"AMPLINK?", b"DEVICELINK?")
+net.label, net.kind, net.api = "", "", 0
 
 # --- setting up: PUT /wifi connects, saves, and the setup network closes 60 s later ---
 

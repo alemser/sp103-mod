@@ -1,14 +1,15 @@
 """The Pico's Wi-Fi: the home network, the setup network, and discovery by the app.
 
+This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+
 The home network lives in wifi.json (written by the setup, never by OTA). Without it, secrets.py's WIFI_SSID and
 WIFI_PASSWORD apply, for Picos installed before this version.
 
 With no saved network, or unable to connect for OPEN_SETUP_AFTER_S, the Pico opens the setup network
-"AmpLink-SP103-XXXX" (WPA2, key SETUP_KEY, the same on every Pico; the app knows it) and keeps trying the saved
+"AmpLink-<PREFIX>-XXXX" (WPA2, key SETUP_KEY, the same on every Pico; the app knows it) and keeps trying the saved
 network. Every setup network starts with SETUP_PREFIX: the app asks Android for "a network starting with AmpLink-",
-which fits any amp.
-Whoever joins it (the app, or a browser at http://192.168.4.1/) uses the routes below. Once connected, the setup
-network closes by itself after CLOSE_SETUP_AFTER_S, time for whoever set it up to read the IP.
+which fits any device. Whoever joins it (the app, or a browser at http://192.168.4.1/) uses the routes below. Once
+connected, the setup network closes by itself after CLOSE_SETUP_AFTER_S, time for whoever set it up to read the IP.
 
     GET    /wifi            {"state", "detail", "ip", "ssid", "setup": {"open", "ssid"}}
                             state and detail: the last attempt (idle, connecting, connected, or failed with the
@@ -20,12 +21,14 @@ network closes by itself after CLOSE_SETUP_AFTER_S, time for whoever set it up t
     DELETE /wifi            forgets the saved network (only with the setup network open)
     GET    /                the setup page, only with the setup network open
 
-Discovery: the app broadcasts "AMPLINK?" on UDP port DISCOVERY_PORT and the Pico answers
-{"name", "model", "ip"}. So the app finds the Pico without a fixed IP.
+Discovery: the app broadcasts "AMPLINK?" (or "DEVICELINK?", contract v2) on UDP port DISCOVERY_PORT and the Pico
+answers {"name", "model", "ip"}, plus "label" (the full name, to show), "kind" (the type of device) and "api" (the
+contract version) when the bridge provides them. So the app finds the Pico without a fixed IP and knows what it found.
 
 Use (with asyncio):
-    net = Wifi(model="sp103", hostname="sp103", prefix="SP103")
-    asyncio.create_task(net.task(aviso))      # aviso(ok, info) once, as before; never raises
+    net = Wifi(model="mr780", hostname="mr780", prefix="MR780",     # each bridge with its own (device.py)
+               label="Magnat MR 780", kind="amplifier", api=2)
+    asyncio.create_task(net.task(report))     # report(ok, info) once; never raises
     routes={"/wifi": net.handle, "/": net.page, ...}
 """
 
@@ -39,6 +42,7 @@ import udp
 
 SETUP_KEY = "amplink-setup"
 SETUP_PREFIX = "AmpLink-"
+PROBES = (b"AMPLINK?", b"DEVICELINK?")  # discovery: api 1 apps ask the first, the DeviceLink app the second
 NET_FILE = "wifi.json"
 DISCOVERY_PORT = 47800
 OPEN_SETUP_AFTER_S = 120    # not connected for this long (with a saved network): open the setup network
@@ -96,8 +100,12 @@ def collapse(scan, limit=MAX_NETWORKS):
 
 
 class Wifi:
-    def __init__(self, model, hostname, prefix, net_file=NET_FILE, retry_s=30, quick_tries=3):
+    def __init__(self, model, hostname, prefix, net_file=NET_FILE, retry_s=30, quick_tries=3, label="", kind="",
+                 api=0):
         self.model = model
+        self.label = label              # "Magnat MR 780": for discovery only
+        self.kind = kind                # "amplifier", "cd_player"
+        self.api = api                  # contract version, in the discovery answer (0 = not sent: api 1 bridges)
         self.hostname = hostname
         self.prefix = prefix
         self.net_file = net_file
@@ -105,7 +113,7 @@ class Wifi:
         self.quick_tries = quick_tries
         self.sta = None
         self.ap = None
-        self.name = prefix              # "SP103-D85E" once the chip is up: the name in discovery
+        self.name = prefix              # "MR780-D85E" once the chip is up: the name in discovery
         self.setup_ssid = SETUP_PREFIX + prefix
         self.status = {"state": "idle", "detail": "", "ip": ""}
         self.pending = None             # (ssid, psk) from PUT /wifi, carried out by task()
@@ -153,8 +161,8 @@ class Wifi:
         """One attempt. Returns (True, ip) or (False, reason) and updates the status."""
         self.status = {"state": "connecting", "detail": ssid, "ip": ""}
         if not first:
-            # Only after the first: with the chip just up, a disconnect() before connect() makes the
-            # first attempt fail (status -1).
+            # Only after the first: with the chip just up, a disconnect() before connect() makes the first attempt
+            # fail (status -1).
             self.sta.disconnect()
         if psk:
             self.sta.connect(ssid, psk)
@@ -198,8 +206,8 @@ class Wifi:
 
     async def task(self, on_first_result=None):
         """Connects and keeps the Wi-Fi up, in the background. Never raises: without Wi-Fi the rest of the program
-        (the display) carries on. on_first_result(ok, info) is called once: on connecting, or when the quick
-        attempts run out (info = the IP or the reason)."""
+        carries on. on_first_result(ok, info) is called once: on connecting, or when the quick attempts run out
+        (info = the IP or the reason)."""
         tries = 0
         reported = False
         while True:
@@ -317,7 +325,14 @@ class Wifi:
             ip = self.sta.ifconfig()[0]
         else:
             ip = self.ap.ifconfig()[0] if self.setup_open() else ""
-        return json.dumps({"name": self.name, "model": self.model, "ip": ip})
+        answer = {"name": self.name, "model": self.model, "ip": ip}
+        if self.label:
+            answer["label"] = self.label
+        if self.kind:
+            answer["kind"] = self.kind
+        if self.api:
+            answer["api"] = self.api        # contract v2: the app knows the version before asking anything
+        return json.dumps(answer)
 
     async def _discovery(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -329,7 +344,7 @@ class Wifi:
             try:
                 while udp.ready(poll):
                     data, addr = sock.recvfrom(64)
-                    if data.strip() == b"AMPLINK?":
+                    if data.strip() in PROBES:
                         sock.sendto(self.answer().encode(), addr)
             except OSError:
                 pass                    # empty queue (without poll) or Wi-Fi dropped midway

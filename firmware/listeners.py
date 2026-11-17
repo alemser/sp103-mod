@@ -1,9 +1,10 @@
 """Who may stay on /events: one connection per IP, and few in total.
 
-A dead connection (a phone that lost Wi-Fi) only goes away after minutes, and each one holds
-lwIP memory and receives writes. With 4 dead at once the server stopped for good
-(issue #2). A client that reconnects comes from the same IP: the new connection takes the old one's place.
-The cap only acts with too many clients, and then the oldest goes.
+This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+
+A dead connection (a phone that lost Wi-Fi) only goes away after minutes, and each one holds lwIP memory and receives
+writes. With 4 dead at once the server stopped for good (SP103 issue #2). A client that reconnects comes from the same
+IP: the new connection takes the old one's place. The cap only acts with too many clients, and then the oldest goes.
 
 Runs the same in MicroPython (Pico) and in the computer's Python (tools/test_listeners.py).
 """
