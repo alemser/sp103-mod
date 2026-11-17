@@ -3,7 +3,7 @@
 Runs the same on MicroPython (Pico) and on the computer's Python (tools/test_sniffer.py).
 
 Each "word" is the bus at the moment E falls (that is the edge on which the LCD reads the byte),
-in the order of the wires GP2..GP12 (docs/ligacao-analisador.md):
+in the order of the wires GP2..GP12 (docs/analyzer-wiring.md):
 
     bit 0 = E   bit 1 = RS   bit 2 = RW   bits 3..10 = D0..D7
 

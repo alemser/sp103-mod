@@ -1,7 +1,7 @@
 # Updating the Pico's program over Wi-Fi
 
 With the Pico installed inside the amp, the USB cable is hard to use (and with the VSYS wire connected, it is even dangerous: see
-`proxy-ligacao.md`, "USB rule"). So the new program goes over Wi-Fi, with a password, and the Pico **goes back on its own to the
+`installation.md`, "USB rule"). So the new program goes over Wi-Fi, with a password, and the Pico **goes back on its own to the
 previous version** if the new one does not work.
 
 The newer bridges' shared base now takes updates over Wi-Fi without a password. This SP103 firmware still has its own

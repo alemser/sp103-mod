@@ -15,7 +15,7 @@ What it does:
   3. Turns each command into text and keeps a copy of the LCD's memory
      (DDRAM), to show what the screen looks like after each burst of writes.
 
-Expected wiring (analyzer channel -> LCD signal), as in docs/ligacao-analisador.md:
+Expected wiring (analyzer channel -> LCD signal), as in docs/analyzer-wiring.md:
     CH1=E  CH2=RS  CH3=RW  CH4..CH11=D0..D7
 If you named the channels in the program (E, RS, RW, D0..D7), the names take priority.
 """

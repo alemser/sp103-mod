@@ -1,6 +1,6 @@
 """Stage 6: the Pico in the middle, between the amp's controller and the display (option 3b).
 
-The amp's display was desoldered at pins 4..14 (docs/proxy-ligacao.md):
+The amp's display was desoldered at pins 4..14 (docs/installation.md):
 - controller side: GP2..GP12 (E, RS, RW, D0..D7), as in the listener. The Pico only reads
   (sniffer.py) and answers "free" to busy-flag reads (busy.py), pulling D7 to 0;
 - display side: GP16..21 (RS, E, D4..D7), 4-bit mode, display RW tied to GND (lcd1602.py).

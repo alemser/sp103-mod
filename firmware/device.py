@@ -1,6 +1,6 @@
 """GET /device: who this bridge is and what it can do.
 
-The contract is in the amp-link repository (docs/contrato.md). Everything here is fixed while the program
+The contract is in the amp-link repository (docs/contract-v1.md). Everything here is fixed while the program
 runs: the client reads it once on connecting. The version is the same as GET /update's.
 
 describe() runs the same in MicroPython (Pico) and in the computer's Python (tools/test_device.py).

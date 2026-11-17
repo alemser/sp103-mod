@@ -1,6 +1,6 @@
 """Presses the Function button on the amp's front panel, from the inside.
 
-Wiring (docs/proxy-ligacao.md):
+Wiring (docs/installation.md):
 
     GP0 = controller leg 6     GP1 = controller leg 13
 

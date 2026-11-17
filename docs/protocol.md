@@ -37,7 +37,7 @@ Screen after the click:
   controller may hang waiting.
 - **The "cut only the E pin" option is unlikely**, because the data lines are not free when idle. The realistic path
   is to intercept the signals (cut pins 4 to 14) or desolder the LCD. Done: the LCD was desoldered on 2026-10-29
-  (`proxy-ligacao.md`).
+  (`installation.md`).
 - **Custom character 0x00** is defined at some point (probably at power-on). The power-on capture should show the
   `Set CGRAM addr` commands with its pattern.
 
@@ -210,7 +210,7 @@ The same negative numbers (-1.25 → -12.50 dB). Only the **bar** switches sides
 ## Port electrics and busy flag reads (2026-10-24)
 
 Measured with the multimeter (amp in standby, same values with the amp on) and with the Pico, during the tests of
-writing without cutting (`historico/opcoes-intercepcao.md`; the tools are in the git history).
+writing without cutting (`history/interception-options.md`; the tools are in the git history).
 
 | Wire | Port | Idle | When driven to 1 | Measurement |
 |---|---|---|---|---|

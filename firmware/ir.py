@@ -1,6 +1,6 @@
 """Sends commands to the amp down the IR line and watches the volume knob.
 
-Wiring (docs/proxy-ligacao.md):
+Wiring (docs/installation.md):
 
     GP15 = IR receiver output (controller leg 12)
     GP14 = volume encoder E1 (controller leg 22), read only
@@ -117,7 +117,7 @@ class Remote:
             await asyncio.sleep_ms(KNOB_POLL_MS)
 
     async def handle(self, req, writer):
-        """/ir routes (see web.Publisher and docs/api-estado.md)."""
+        """/ir routes (see web.Publisher and docs/api-state.md)."""
         from web import reply, reply_json
         if req.path == "/ir" and req.method == "GET":
             return await reply_json(writer, self.status())

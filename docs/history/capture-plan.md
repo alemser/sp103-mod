@@ -1,7 +1,7 @@
 # Capture plan: what the controller sends to the display
 
-> **Completed on 2026-10-23.** The results are in `docs/descobertas-protocolo.md`. Kept as a record. The display is
-> no longer connected to the controller (`docs/proxy-ligacao.md`).
+> **Completed on 2026-10-23.** The results are in `docs/protocol.md`. Kept as a record. The display is
+> no longer connected to the controller (`docs/installation.md`).
 
 **Goal:** record **everything** the SP103 controller sends to the LCD (at power-on, when changing input, when moving
 the volume, the Function button…). With that we build the full "dictionary" of commands and texts. Then we take it
@@ -9,7 +9,7 @@ all apart, close the amplifier and move on to the bench, with the spare display.
 
 **Nothing is cut or soldered.** The wires are only pushed onto the LCD's little pins.
 
-Pin map and technical details: `docs/ligacao-analisador.md`.
+Pin map and technical details: `docs/analyzer-wiring.md`.
 
 ---
 

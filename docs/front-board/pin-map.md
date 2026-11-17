@@ -12,7 +12,7 @@ the encoder table below shows.
 - Measure with the amp unplugged for 5 minutes, with less than 0.5 V between display pins 1 and 2.
 - Front board only: never the mains board, the transformer or the power board.
 - Never touch the 12 MHz crystal or legs 18 and 19 with the amp on.
-- The board's signals are 5 V; the Pico is 3.3 V. See `../proxy-ligacao.md`.
+- The board's signals are 5 V; the Pico is 3.3 V. See `../installation.md`.
 
 ## Leg numbering (2026-11-05)
 
@@ -231,7 +231,7 @@ The leg count may have been off in the measurements made before the K1–K7 butt
 ## In use (2026-11-06)
 
 The Pico inside the amp uses these points: the IR signal (GP15), the encoder's E1 (GP14) and legs 6 and 13 of the
-Function button, which is K7 (GP0 and GP1). See `../proxy-ligacao.md`. The PT2314 captures were dropped from the plan,
+Function button, which is K7 (GP0 and GP1). See `../installation.md`. The PT2314 captures were dropped from the plan,
 because the volume already comes from the display.
 
 **Function (2026-11-06):** with the button released, leg 6 pulses and leg 13 stays at 1. With it pressed, leg 13 drops

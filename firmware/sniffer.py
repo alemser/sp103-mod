@@ -1,6 +1,6 @@
 """Listens to the amp's LCD bus with the PIO, never driving any signal onto it.
 
-Wiring (the same as for the captures, docs/ligacao-analisador.md):
+Wiring (the same as for the captures, docs/analyzer-wiring.md):
 
     GP2 = E   GP3 = RS   GP4 = RW   GP5..GP12 = D0..D7   (+ GND on LCD pin 1)
 

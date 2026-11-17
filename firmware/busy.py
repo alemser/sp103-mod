@@ -1,9 +1,9 @@
 """Answers the amp's controller in place of the display: "free" (busy flag = 0) on every read.
 
-With the display disconnected from the controller (option 3b, docs/proxy-ligacao.md), nobody
+With the display disconnected from the controller (option 3b, docs/installation.md), nobody
 else answers the reads. The controller reads the busy flag before each command and each
 character and, to do so, releases only D7, which the 4.7 kΩ resistor pulls to 1 = "busy".
-With no answer, it asks again forever (docs/descobertas-protocolo.md).
+With no answer, it asks again forever (docs/protocol.md).
 
 On each read (RW = 1 at the rising edge of E), the PIO pulls D7 (GP12) to 0 until E falls.
 

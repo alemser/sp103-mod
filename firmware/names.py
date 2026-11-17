@@ -18,7 +18,7 @@ centered, like the original ones.
 
 "relay" is the IP of the board running sp103-vu-relay: MicroPython does not resolve .local names.
 It starts empty; with the VU on, it is required.
-The screens' "source" is the IP of whoever speaks the docs/api-telas.md contract; empty = the same as the VU.
+The screens' "source" is the IP of whoever speaks the docs/api-screens.md contract; empty = the same as the VU.
 """
 
 import json

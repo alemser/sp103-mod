@@ -1,6 +1,6 @@
 # Bench: wiring the spare display (blue 1602) to the Pico 2 W
 
-> GP16–21 are the same pins that now draw on the amp's display (`proxy-ligacao.md`). On the bench, the spare display
+> GP16–21 are the same pins that now draw on the amp's display (`installation.md`). On the bench, the spare display
 > takes that place, powered from USB.
 
 **4-bit** mode, with **RW tied to GND**: the Pico only writes and never reads. That way the display never sends 5 V back

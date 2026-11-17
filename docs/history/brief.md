@@ -43,7 +43,7 @@ Inferred, not yet confirmed:
 4. Later: a Wi-Fi endpoint for OceanO to send "now playing" (temporary overlay).
 
 The "Decided architecture" section (at the end) updates this list. The install that was actually built is in
-`docs/proxy-ligacao.md`: the display was desoldered, instead of cutting the pins, and the Pico sits in the middle.
+`docs/installation.md`: the display was desoldered, instead of cutting the pins, and the Pico sits in the middle.
 
 MicroPython with rp2 PIO if the timing allows, otherwise the C SDK. Simple, well-commented code.
 
@@ -63,14 +63,14 @@ Photos in `docs/img/petervis/`, of the same board model ("SP103 AMPLIFIER CONTRO
 
 ## Multimeter measurements (2026-10-22)
 
-Answered. See the full map in `docs/ligacao-analisador.md`:
+Answered. See the full map in `docs/analyzer-wiring.md`:
 - The bus is **8-bit**: D0–D7 on legs 39–32 (P0).
 - **RW does not go to GND**: it is on leg 11 (P3.1). RS on leg 10 (P3.0), E on leg 28 (P2.7).
 - LCD pin 1 is the left end, seen from the front.
 
 ## Captures with the analyser (2026-10-23)
 
-Done. Details in `docs/descobertas-protocolo.md`:
+Done. Details in `docs/protocol.md`:
 - The controller **reads the busy flag** before every command and every character. The final Pico must answer these reads.
 - It **redraws both lines in full** on every event (volume, input, menu), positioning each character (about 8 ms per screen).
 - The data lines stay latched at the last byte when idle, so cutting only the E pin should not be enough.
@@ -80,7 +80,7 @@ Done. Details in `docs/descobertas-protocolo.md`:
 ## Decided architecture (2026-10-23)
 
 > Update from 2026-11-06: the Pico now also sends commands over the IR line, inside the amp
-> (`proxy-ligacao.md`). It still does not replace the controller. The web pages are gone: the Pico only has an API, and
+> (`installation.md`). It still does not replace the controller. The web pages are gone: the Pico only has an API, and
 > the client is the app in the amp-link repository. The text below stays as a record of the original decision.
 
 The Pico does **not** replace the controller and does **not** emit IR. IR control of the amp already exists in the
@@ -129,7 +129,7 @@ The Pico's role:
 | `GET /events` | Server-Sent Events: a notice on every change (so groove-rig can do closed-loop control, e.g. "go to -30 dB") |
 | `GET /` | simple page to see the state on a phone |
 | `GET /bus` | bus statistics and download of the latest words (CSV with timestamps) |
-| `GET /update` | program update over Wi-Fi, password-protected (`docs/atualizacao-wifi.md`) |
+| `GET /update` | program update over Wi-Fi, password-protected (`docs/wifi-update.md`) |
 
 Wi-Fi rather than Bluetooth: OceanO and groove-rig are already on the network, and the phone's browser is enough (no
 app).
@@ -168,23 +168,23 @@ app).
   `/state`, `/events`, `/names` and page; input names and boot texts customisable from the page
   (`firmware/names.json` on the Pico); `main.py` runs everything by itself at power-on.
 - **Interception (stage 6), analysis (2026-10-23):** overwriting in parallel is not feasible (the controller drives E
-  and data strongly) and the T9311 has no socket. Options in `docs/opcoes-intercepcao.md`.
+  and data strongly) and the T9311 has no socket. Options in `docs/interception-options.md`.
 - **Stage 4, firmware ready (2026-10-24):** `firmware/escuta.py` + `sniffer.py` (PIO + circular DMA) + `hd44780.py`.
   Tested with the captures (`tools/test_sniffer.py`) and on the Pico without the amp (`tools/teste_sniffer_pico.py`);
   `main.py` now runs the sniffer. No series resistors, and the Pico powered from LCD pin 2 (5 V present even in
   standby) into VSYS.
 - **Wi-Fi update and /bus page (2026-10-24):** `firmware/ota.py` + `main.py` (automatic rollback to the previous
-  version) and `tools/enviar.py`, see `docs/atualizacao-wifi.md`. `firmware/buslog.py`: bus statistics and download of
+  version) and `tools/enviar.py`, see `docs/wifi-update.md`. `firmware/buslog.py`: bus statistics and download of
   the latest words (8192 today) with timestamps (`tools/ler_bus.py` rebuilds the screens). Tested on the bench with a
   fake amp (`tools/teste_bus_pico.py`), including the automatic rollbacks.
 - **Writing without cutting (2026-10-24 to 10-28), retired:** the Pico, in parallel with the display, only pulled wires
   to 0 and managed to show short names (REGA, TAPE), only from the second redraw on. Summary and lessons in
-  `docs/opcoes-intercepcao.md`; the code is in the git history (up to `6be4eb2`).
+  `docs/interception-options.md`; the code is in the git history (up to `6be4eb2`).
 - **Install inside the amp (2026-10-24):** the Pico sits inside, powered from LCD pin 2 (red wire to VSYS, pin 39);
   updates over Wi-Fi only (`tools/enviar.py`).
 - **Stage 6 done: the Pico as proxy (2026-10-29):** display desoldered at pins 4–14 (option 3b). The Pico reads the
   controller, answers "free" to the busy flag (`firmware/busy.py`) and draws the screens with the custom names
   (`firmware/proxy.py`). Any text up to 16 characters, from the first screen. Tested on the amp and with the captures
-  (`tools/test_proxy.py`). Install: `docs/proxy-ligacao.md`.
+  (`tools/test_proxy.py`). Install: `docs/installation.md`.
 - **VU meter (2026-10-29):** optional, from the page. The data comes from groove-detector through a new bridge on the
   Orange Pi (`relay/`, UDP), without changing the detector. See `docs/vu.md`.

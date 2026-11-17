@@ -1,6 +1,6 @@
 """Draws the SP103 screens from a state (the reverse of amp_state.parse).
 
-Formats taken from the captures (docs/descobertas-protocolo.md). Those marked
+Formats taken from the captures (docs/protocol.md). Those marked
 "guess" have not been seen on the amp yet.
 """
 

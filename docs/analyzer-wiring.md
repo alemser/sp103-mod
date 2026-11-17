@@ -1,7 +1,7 @@
 # Wiring the logic analyser to the SP103 LCD
 
 > The pin map below still applies. The analyser wiring was used for the captures on 2026-10-23; today LCD pins
-> 4–14 are separated from the controller (`docs/proxy-ligacao.md`). To capture again, connect the analyser to the
+> 4–14 are separated from the controller (`docs/installation.md`). To capture again, connect the analyser to the
 > wires on the controller side (holes 4–14 on the board).
 
 ## Pin map (measured with a multimeter on 2026-10-22, amp unplugged)

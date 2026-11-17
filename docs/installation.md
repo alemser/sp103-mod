@@ -1,6 +1,6 @@
 # Current install: the Pico in the middle, between the controller and the display
 
-Built and working since 2026-10-29 (option 3b in `historico/opcoes-intercepcao.md`). The amp's display was desoldered.
+Built and working since 2026-10-29 (option 3b in `history/interception-options.md`). The amp's display was desoldered.
 Pins 1–3, 15 and 16 were soldered back to the board; pins 4–14 no longer go into it:
 
 - **Controller side**: Dupont wires soldered into holes 4–14 of the lower board.
@@ -41,7 +41,7 @@ to the USB).
 
 - Contrast (3) and backlight (15, 16) still come from the amp's board.
 - The display runs in 4-bit mode with RW on GND: it only receives and never sends 5 V back to the Pico. The Pico's
-  3.3 V is enough for it, with no level shifter (tested on the bench, `bancada-ligacao.md`).
+  3.3 V is enough for it, with no level shifter (tested on the bench, `bench-wiring.md`).
 - Since the white, grey and purple wires repeat, each one is labelled with its pin number.
 
 ### Four wires to control the amp (2026-11-06)
@@ -73,7 +73,7 @@ Soldered under the board, without resistors. Programs: `firmware/ir.py`, `firmwa
   PHONO, while the front button worked. It went away after checking the solder joints. If it comes back, look at these
   points first.
 
-Routes and commands: `api-estado.md`.
+Routes and commands: `api-state.md`.
 
 ### Checking the cut (multimeter on continuity, amp unplugged)
 
@@ -127,7 +127,7 @@ first**.
 
 A 1N5817 Schottky diode in the red wire (anode on the display, cathode on VSYS) would remove this rule.
 
-With the Pico inside the amp, update over Wi-Fi only (`atualizacao-wifi.md`).
+With the Pico inside the amp, update over Wi-Fi only (`wifi-update.md`).
 
 ## Without the Pico
 
@@ -163,5 +163,5 @@ same number (11 jumpers).
 
 ## Open
 
-- **Knowing the state right after a restart.** Standby comes from the screens (`api-estado.md`), so it stays `null`
+- **Knowing the state right after a restart.** Standby comes from the screens (`api-state.md`), so it stays `null`
   until the amp changes state. Reading the front LED (chip legs 26 and 27, a read-only wire on GP13) would solve this.

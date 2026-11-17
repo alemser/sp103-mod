@@ -1,6 +1,6 @@
 package main
 
-// Info screens: what is playing, for the SP103 display (docs/api-telas.md).
+// Info screens: what is playing, for the SP103 display (docs/api-screens.md).
 //
 // This bridge is the groove adapter: it reads groove-identity (artist, song, position,
 // track on the record), groove-catalog (record tracks, stylus) and the groove-detector
@@ -77,7 +77,7 @@ func unknownInfo() info {
 		StylusHours: -1, StylusWear: -1, stream: unknownStream()}
 }
 
-// packet builds the "NP" datagram (docs/api-telas.md).
+// packet builds the "NP" datagram (docs/api-screens.md).
 func (in info) packet() []byte {
 	num := func(v int) string {
 		if v < 0 {

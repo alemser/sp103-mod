@@ -1,6 +1,6 @@
 # Measurement plan: SP103 front board
 
-> **Completed on 2026-10-22.** The results are in `docs/ligacao-analisador.md`.
+> **Completed on 2026-10-22.** The results are in `docs/analyzer-wiring.md`.
 
 Goal: find out how the controller (T9311DP) talks to the LCD, **without powering anything on the amplifier**.
 At the end, we will know how many wires the logic analyser needs and where to attach them.

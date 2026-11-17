@@ -1,7 +1,7 @@
 """Simple driver for a 16x2 LCD (HD44780) in 4-bit mode, write only (RW on GND).
 
-Wiring: RS=GP16, E=GP17, D4..D7=GP18..GP21, on the amp's display (docs/proxy-ligacao.md)
-or on the bench spare (docs/bancada-ligacao.md).
+Wiring: RS=GP16, E=GP17, D4..D7=GP18..GP21, on the amp's display (docs/installation.md)
+or on the bench spare (docs/bench-wiring.md).
 Since RW is on GND, the busy flag cannot be read: we wait the maximum time
 for each command (HD44780 datasheet).
 """

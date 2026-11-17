@@ -8,7 +8,7 @@ groove-rig (the amplifier's "state provider") can rely on; changes to it must al
 
 | Route | What |
 |---|---|
-| `GET /device` | Who the bridge is and what it can do. The contract is in `docs/contrato.md`, in the amp-link repository |
+| `GET /device` | Who the bridge is and what it can do. The contract is in `docs/contract-v1.md`, in the amp-link repository |
 | `GET /state` | The current state, as JSON |
 | `GET /events` | Server-Sent Events: one `data: {json}` with the current state right on connect, and another on every change. A `: ping` comment every 1 s keeps the connection alive: with nothing for about 5 s, the client should reconnect |
 | `GET /ir` | Accepted commands, sends made, and readings of the IR line and the volume knob |

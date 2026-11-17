@@ -7,11 +7,11 @@ The repository was called `sp103-display-proxy` until 2026-11-16, when it was re
 
 - The controller and the amp's functions stay original. The Pico changes what the display shows: "TUNER" becomes
   "Rega Planar 2", and so on.
-- The Pico publishes the amp's state (volume, input, menus) on the network, at `http://sp103.local/` (API only: `docs/api-estado.md`).
+- The Pico publishes the amp's state (volume, input, menus) on the network, at `http://sp103.local/` (API only: `docs/api-state.md`).
 - Optional: the two lines become a VU meter (L and R channels, with peak hold) while music plays, using data from the
   groove-detector (`docs/vu.md`).
 - The Pico controls the amp over Wi-Fi: it sends the remote control codes straight onto the IR line, inside the amp, and presses
-  the Function button. With the amp in standby, turning the volume knob turns the amp on (`docs/proxy-ligacao.md`).
+  the Function button. With the amp in standby, turning the volume knob turns the amp on (`docs/installation.md`).
 - The remote control keeps working, and groove-rig still controls the amp through the Broadlink.
 - The display no longer shows a clock in standby: the standby clock was removed on 2026-11-16.
 
@@ -41,7 +41,7 @@ Function button ◄──(GP0 reads, GP1 pulls to 0 only)── Pico 2 W
 | See the amp's state | the Amp Link app (amp-link repository), Now tab |
 | Change the input names and the start screens | the app, Names tab (up to 16 characters, no accents) |
 | Turn on the VU meter | the app, Display tab (`docs/vu.md`) |
-| Control the amp | the app, Now tab, or `curl -X POST "http://sp103.local/control?target=bass&dir=up"` (`docs/api-estado.md`) |
+| Control the amp | the app, Now tab, or `curl -X POST "http://sp103.local/control?target=bass&dir=up"` (`docs/api-state.md`) |
 | See the bus | the app, Status tab |
 | Download the log | `curl http://sp103.local/bus.csv` |
 | Set up or change the Wi-Fi network | no cable: join the Pico's `AmpLink-SP103-XXXX` network (password `amplink-setup`) and open `http://192.168.4.1/` (`docs/wifi.md`) |
@@ -52,17 +52,17 @@ Function button ◄──(GP0 reads, GP1 pulls to 0 only)── Pico 2 W
 
 | Document | Contents |
 |---|---|
-| [`docs/proxy-ligacao.md`](docs/proxy-ligacao.md) | **The current installation**: wiring, power, safety rules, troubleshooting |
-| [`docs/api-estado.md`](docs/api-estado.md) | The contract for `/state`, `/events` and the `/control` and `/ir` routes (amp state and commands) |
+| [`docs/installation.md`](docs/installation.md) | **The current installation**: wiring, power, safety rules, troubleshooting |
+| [`docs/api-state.md`](docs/api-state.md) | The contract for `/state`, `/events` and the `/control` and `/ir` routes (amp state and commands) |
 | [`docs/vu.md`](docs/vu.md) | The VU meter: the bridge, the protocol, what the display shows, the settings |
-| [`docs/trocar-de-placa.md`](docs/trocar-de-placa.md) | **Installing the bridge** on a board: do it when moving the capture to another board or flashing a new image |
-| [`docs/atualizacao-wifi.md`](docs/atualizacao-wifi.md) | Updating the Pico over Wi-Fi, with automatic rollback |
+| [`docs/relay-setup.md`](docs/relay-setup.md) | **Installing the bridge** on a board: do it when moving the capture to another board or flashing a new image |
+| [`docs/wifi-update.md`](docs/wifi-update.md) | Updating the Pico over Wi-Fi, with automatic rollback |
 | [`docs/wifi.md`](docs/wifi.md) | Setting up the Pico's Wi-Fi without a cable (its own network) and finding the Pico on the network without a fixed IP |
-| [`docs/descobertas-protocolo.md`](docs/descobertas-protocolo.md) | How the controller talks to the display: commands, screens and the electrical side |
-| [`docs/bancada-ligacao.md`](docs/bancada-ligacao.md) | Spare display on the bench (same 4-bit wiring as the amp's display) |
-| [`docs/ligacao-analisador.md`](docs/ligacao-analisador.md) | Pin map of the LCD and the T9311, logic analyser wiring |
-| [`docs/placa-frontal/mapa-pernas.md`](docs/placa-frontal/mapa-pernas.md) | Pin map of the T9311DP controller, measured with the multimeter, and photos of the board |
-| [`docs/historico/`](docs/historico/) | Project record: initial goal, options considered, and measurement and capture plans. They do not describe the current state |
+| [`docs/protocol.md`](docs/protocol.md) | How the controller talks to the display: commands, screens and the electrical side |
+| [`docs/bench-wiring.md`](docs/bench-wiring.md) | Spare display on the bench (same 4-bit wiring as the amp's display) |
+| [`docs/analyzer-wiring.md`](docs/analyzer-wiring.md) | Pin map of the LCD and the T9311, logic analyser wiring |
+| [`docs/front-board/pin-map.md`](docs/front-board/pin-map.md) | Pin map of the T9311DP controller, measured with the multimeter, and photos of the board |
+| [`docs/history/`](docs/history/) | Project record: initial goal, options considered, and measurement and capture plans. They do not describe the current state |
 
 ## Folders
 

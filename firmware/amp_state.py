@@ -8,7 +8,7 @@ Use:
         print(st.to_dict())      # something changed
 
 The lines are the 16 positions of each LCD line, with the original codes
-(chr(0) = the bar box, see docs/descobertas-protocolo.md).
+(chr(0) = the bar box, see docs/protocol.md).
 
 IMPORTANT: only call update() with the COMPLETE screen. The controller redraws
 character by character (about 8.5 ms per screen), and halfway through a line

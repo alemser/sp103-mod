@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests the screen reader (firmware/amp_state.py).
 
-Without arguments: checks hand-written screens (the ones from the captures, see docs/descobertas-protocolo.md).
+Without arguments: checks hand-written screens (the ones from the captures, see docs/protocol.md).
 With captures: replays each .lac, hands each complete screen to the reader and shows the state when it changes.
 
     python3 tools/test_amp_state.py

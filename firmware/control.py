@@ -4,7 +4,7 @@
     POST /control?target=loudness&on=1       loudness or speakers; on = 1 or 0
     POST /control?target=key&name=select_cd  one remote key (ir_codes.COMMANDS)
 
-The path in the amp (docs/api-estado.md):
+The path in the amp (docs/api-state.md):
 - bass and treble have their own IR key; balance, loudness and speakers only through the Function button
   (panel.py), which steps through the menu: Bass, Treble, Balance, Loudness, Speakers, normal screen;
 - inside a menu, volume + and − adjust that menu. Outside it, they adjust the volume;

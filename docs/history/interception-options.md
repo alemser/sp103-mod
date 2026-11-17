@@ -1,7 +1,7 @@
 # How the Pico can change the amp's display text (interception options)
 
 **Decided and done on 2026-10-29: option 3b, display desoldered at pins 4–14, with the Pico as proxy.** Install:
-`proxy-ligacao.md`.
+`installation.md`.
 
 This document sums up why the Pico has to sit in the middle, the options considered and what the "no cut" attempt
 (2026-10-24 to 10-28) taught. The code and tests of that attempt (`escrita.py`, `plano.py`, `refresh.py`,
@@ -69,7 +69,7 @@ With the proxy, none of these limits exist: any text up to 16 characters, from t
 
 ### What was learned
 
-The facts about the controller are in `descobertas-protocolo.md` ("Port electrics and busy flag reads"): RS and RW are
+The facts about the controller are in `protocol.md` ("Port electrics and busy flag reads"): RS and RW are
 weak at 1, E and the data at 0 are strong, the controller releases only D7 to read the busy flag and asks again if it
 reads "busy", and the LCD ignores command 0x00.
 

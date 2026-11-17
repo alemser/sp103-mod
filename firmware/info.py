@@ -1,4 +1,4 @@
-"""Info screens: receives what is playing from the source (docs/api-telas.md).
+"""Info screens: receives what is playing from the source (docs/api-screens.md).
 
 The Pico doesn't know where the data comes from: it only knows the contract. It subscribes every 2 s ("SUB2" with
 the screens bit) and receives an "NP" packet when something changes and every 5 s:

@@ -10,10 +10,10 @@
 // Protocol (UDP port 7091):
 //
 //	Pico   → bridge "SUB1"                      VU-only request; valid for 6 s, the Pico repeats it every 2 s
-//	Pico   → bridge "SUB2" mask                 bit 0 = VU, bit 1 = screens (docs/api-telas.md)
+//	Pico   → bridge "SUB2" mask                 bit 0 = VU, bit 1 = screens (docs/api-screens.md)
 //	bridge → Pico   "VU" 0x01 flags L R         12 bytes; L and R float32 little-endian (RMS 0..1)
 //	                flags: bit 0 = music playing, bit 1 = the gate was read
-//	bridge → Pico   "NP" 0x01 flags fields...   the screens: see docs/api-telas.md
+//	bridge → Pico   "NP" 0x01 flags fields...   the screens: see docs/api-screens.md
 //
 // Without a valid request, the bridge sends nothing.
 package main

@@ -49,7 +49,7 @@ Without `wifi.json`, the Pico uses `WIFI_SSID` and `WIFI_PASSWORD` from `secrets
 through its own network, `wifi.json` takes over, and those two lines in `secrets.py` can go (over the cable, when
 convenient). `UPDATE_PASSWORD` stays in `secrets.py`.
 
-`wifi.json` is not a `.py`: the update over Wi-Fi (`atualizacao-wifi.md`) never sends, deletes or restores it.
+`wifi.json` is not a `.py`: the update over Wi-Fi (`wifi-update.md`) never sends, deletes or restores it.
 
 ## Pico details found on the bench
 

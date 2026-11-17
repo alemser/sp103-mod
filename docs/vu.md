@@ -89,7 +89,7 @@ Diagnostics at `http://sp103.local/names`, field `vu` (frames received, age of t
 
 ## Installing the bridge
 
-See [`trocar-de-placa.md`](trocar-de-placa.md). Each board with the groove-detector can have its own; the Pico chooses by IP.
+See [`relay-setup.md`](relay-setup.md). Each board with the groove-detector can have its own; the Pico chooses by IP.
 
 The `sp103-vu-relay` service runs as `nobody`, in the `groove` group (the VU socket is `root:groove 0660`).
 
