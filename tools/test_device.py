@@ -35,7 +35,17 @@ assert named[1]["key"] == "select_tuner" and named[1]["id"] == "tuner"
 assert device.CONTROLS[2]["select"]["options"] == [], "describe() does not change the template"
 assert d["state"][0]["id"] == "power"
 size = len(json.dumps(device.describe("abcd1234", "SP103-D4FE")))
-assert size < 6000, "the description stays small: %d bytes" % size
+assert size < 9000, "the description stays small: %d bytes" % size
+assert "diagnostics" not in d
+assert {f["id"]: f for f in d["state"]}["lcd"]["columns"] == 16
+by_id = {f["id"]: f for f in d["settings"]}
+assert by_id["vu.layout"]["when"] == {"vu.on": True} and by_id["vu.layout"]["labels"][1] == "Cassette deck"
+assert by_id["info.secs"]["when"] == {"info.on": True, "info.mode": "temp"}
+assert by_id["boot.0"]["placeholder"] == "ACOUSTIC" and by_id["inputs.CD"]["placeholder"] == "CD"
+for f in d["settings"]:
+    assert set(f.get("when", {})) <= set(by_id), "a condition names a real setting: %s" % f["id"]
+custom = device.describe("abcd1234", "SP103-D4FE", {"TUNER": "Rega Planar 2"})
+assert {f["id"]: f for f in custom["settings"]}["info.turntable.TUNER"]["label"] == "Rega Planar 2"
 
 # --- settings ------------------------------------------------------------------------------------------
 ids = [f["id"] for f in d["settings"]]

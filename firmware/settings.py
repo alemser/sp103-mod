@@ -3,8 +3,9 @@
     GET   /settings   {"<id>": value, ...}                    (contract v2: amp-link docs/contract-v2.md, Settings)
     PATCH /settings   only the ids that change; answers the whole object, or 400 {"error", "id"}
 
-The ids flatten names.json: "inputs.TUNER", "boot.0", "vu.on", "info.show.stylus", "info.turntable.PHONO". FIELDS is
-the description's "settings" list (device.py). to_flat() and patch() run the same on the Pico and on the computer
+The ids flatten names.json: "inputs.TUNER", "boot.0", "vu.on", "info.show.stylus", "info.turntable.PHONO". fields()
+is the description's "settings" list (device.py), with hints, "when" (shown only while other settings have those
+values) and placeholders (the amp's own text, when a text is empty). to_flat() and patch() run the same on the Pico and on the computer
 (tools/test_settings.py).
 """
 
@@ -23,27 +24,47 @@ def _field(fid, ftype, label, group, **extra):
     return d
 
 
-def _lcd(fid, label, group):
-    return _field(fid, "text", label, group, max=names.MAX_LEN, charset="lcd")
+def _lcd(fid, label, group, **extra):
+    return _field(fid, "text", label, group, max=names.MAX_LEN, charset="lcd", **extra)
 
 
-FIELDS = [_lcd("inputs." + i, i, "Input names") for i in INPUTS]
-for _screen, _group in (("boot", "Boot screen"), ("about", "About screen")):
-    FIELDS += [_lcd("%s.%d" % (_screen, n), "Line %d (%s)" % (n + 1, DEFAULTS[_screen][n]), _group) for n in (0, 1)]
-FIELDS += [
-    _field("vu.on", "bool", "VU meter while music plays", "VU meter"),
-    _field("vu.layout", "enum", "Layout", "VU meter", values=list(names.VU_LAYOUTS)),
-    _field("vu.relay", "ip", "Source (the VU relay's IP)", "VU meter"),
-    _field("info.on", "bool", "Info screens", "Info screens"),
-    _field("info.mode", "enum", "Show them", "Info screens", values=list(INFO_MODES),
-           labels=["For a few seconds", "All the time"]),
-    _field("info.show.stylus", "bool", "Stylus hours (turntable inputs)", "Info screens"),
-    _field("info.show.quality", "bool", "Bluetooth quality (DAB)", "Info screens"),
-    _field("info.secs", "int", "Seconds on screen", "Info screens", min=names.INFO_SECS[0], max=names.INFO_SECS[1],
-           step=1),
-    _field("info.source", "ip", "Source (IP; empty = the VU's)", "Info screens"),
-]
-FIELDS += [_field("info.turntable." + i, "bool", i, "Turntable inputs") for i in INPUTS]
+VU_LAYOUT_NAMES = {"bars": "Thin bars", "deck": "Cassette deck", "scale": "Printed scale", "kx393": "Yamaha KX-393"}
+INFO_ON = {"info.on": True}
+
+
+def fields(custom=None):
+    """The description's settings list. custom = names.json "inputs": the turntable choices carry the chosen names."""
+    custom = custom or {}
+    out = [_lcd("inputs." + i, i, "Input names", placeholder=i) for i in INPUTS]
+    out[0]["hint"] = "Empty = the amp's own name. Up to 16 characters, no accents"
+    for screen, group in (("boot", "Boot screen"), ("about", "About screen")):
+        out += [_lcd("%s.%d" % (screen, n), "Line %d" % (n + 1), group, placeholder=DEFAULTS[screen][n]) for n in (0, 1)]
+    out += [
+        _field("vu.on", "bool", "VU meter while music plays", "VU meter"),
+        _field("vu.layout", "enum", "Layout", "VU meter", values=list(names.VU_LAYOUTS),
+               labels=[VU_LAYOUT_NAMES[k] for k in names.VU_LAYOUTS], when={"vu.on": True}),
+        _field("vu.relay", "ip", "Source (the VU relay's IP)", "VU meter",
+               hint="The board running sp103-vu-relay; the Pico does not resolve .local names"),
+        _field("info.on", "bool", "Stylus and Bluetooth quality", "Info screens"),
+        _field("info.mode", "enum", "Show them", "Info screens", values=list(INFO_MODES),
+               labels=["For a few seconds", "All the time"], when=INFO_ON,
+               hint="All the time: the VU meter is not shown"),
+        _field("info.secs", "int", "Seconds on the display", "Info screens", min=names.INFO_SECS[0],
+               max=names.INFO_SECS[1], step=1, when={"info.on": True, "info.mode": "temp"},
+               hint="Stylus: when you switch to a turntable input and when a record starts. Bluetooth: when it starts "
+                    "or the quality changes"),
+        _field("info.show.stylus", "bool", "Stylus hours", "Info screens", hint="On the turntable inputs", when=INFO_ON),
+        _field("info.show.quality", "bool", "Bluetooth quality", "Info screens", hint="On DAB, with Bluetooth",
+               when=INFO_ON),
+        _field("info.source", "ip", "Info source (IP)", "Info screens", hint="Empty = the VU source", when=INFO_ON),
+    ]
+    turntable = [_field("info.turntable." + i, "bool", custom.get(i) or i, "Turntable inputs", when=INFO_ON)
+                 for i in INPUTS]
+    turntable[0]["hint"] = "The stylus screen only appears on these"
+    return out + turntable
+
+
+FIELDS = fields()
 TYPES = {f["id"]: f for f in FIELDS}
 
 

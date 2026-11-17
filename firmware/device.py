@@ -2,7 +2,8 @@
 
 The app builds the SP103's screen from this: the state fields to show, the remote in groups (power, volume, input,
 tone, switches) and the settings (settings.py). The JSON is built on the first request and served as stored bytes
-afterwards; only a change to the input names rebuilds it (the input chips carry the names the person chose).
+afterwards; only a change to the input names rebuilds it (the input chips and the turntable choices carry the names
+the person chose).
 
 /state keeps the contract v1 fields (volume_db, input_id, bass_db...), which groove-rig also reads.
 
@@ -23,7 +24,7 @@ FEATURES = ("control", "settings", "update", "wifi_setup")
 
 STATE = (
     {"id": "power", "type": "enum", "values": ["on", "standby"]},
-    {"id": "lcd", "type": "lines", "label": "Display"},
+    {"id": "lcd", "type": "lines", "label": "Display", "columns": 16},
     {"id": "volume_db", "type": "number", "label": "Volume", "unit": "dB"},
     {"id": "input_name", "type": "text", "label": "Input"},
     {"id": "bass_db", "type": "number", "label": "Bass", "unit": "dB"},
@@ -65,7 +66,7 @@ def describe(version, name, custom=None):
         controls.append(g)
     return {"api": API, "kind": KIND, "model": MODEL, "name": name, "bridge_version": version,
             "firmware": FIRMWARE, "features": list(FEATURES), "state": list(STATE), "controls": controls,
-            "settings": settings.FIELDS}
+            "settings": settings.fields(custom)}
 
 
 def keys():
