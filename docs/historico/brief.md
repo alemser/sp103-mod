@@ -1,101 +1,101 @@
-# Brief: texto personalizado no LCD frontal do Acoustic Solutions SP103 (Raspberry Pi Pico 2 W)
+# Brief: custom text on the front LCD of the Acoustic Solutions SP103 (Raspberry Pi Pico 2 W)
 
-Resumo vindo da conversa no Claude (cloud), 2026-10-21. Fica como referência do projeto; o estado atual está
-no `README.md` e no "Andamento", no fim.
+Summary from the conversation with Claude (cloud), 2026-10-21. It stays as the project's reference; the current state
+is in `README.md` and in "Progress", at the end.
 
-## Objetivo
-Mudar o que o LCD frontal original do amplificador SP103 mostra (por exemplo, "PHONO" vira "Turntable", volume personalizado, mensagem de boas-vindas e, mais tarde, o nome da faixa vindo do OceanO). O LCD original, o controlador original e todas as funções do amplificador continuam intactos. Tudo deve ser reversível. O dono é amador, então as explicações devem ser passo a passo.
+## Goal
+Change what the SP103 amplifier's original front LCD shows (for example, "PHONO" becomes "Turntable", custom volume, a welcome message and, later, the track name coming from OceanO). The original LCD, the original controller and all the amplifier's functions stay intact. Everything must be reversible. The owner is a hobbyist, so the explanations should be step by step.
 
-## Fatos de hardware
-Verificado pelas fotos:
-- Placa frontal: "SP103 AMPLIFIER CONTROL BOARD 3", DSP-ISS2, de 2007/06/08.
-- Display: módulo LCD de caracteres 16x2 padrão (marcado LCD1A), backlight amarelo-esverdeado, uma fileira de 16 pinos, pads A/K separados à direita. Trimpot de contraste VR301.
-- Controlador: DIP de 40 pinos marcado T9311DP / Y534D383 9353 / D2414 3323550. Sem datasheet e firmware não modificável. Tem um cristal com dois capacitores de 22 pF e duas redes de resistores de 9 pinos 4,7k (R907/R908, "9P4K7").
-- IC801 = EEPROM I2C 24C01 (pino 5 = SDA, pino 6 = SCL, pino 4 = GND). O volume é um encoder rotativo, então o volume é totalmente digital.
-- Processador de áudio: PT2314 (I2C), na placa de entradas. Passos de 1,25 dB, de 0 a -78,75 dB.
-- O display mostra, por exemplo, "Volume -78.75 dB" na linha 1 e "PHONO" na linha 2.
+## Hardware facts
+Verified from the photos:
+- Front board: "SP103 AMPLIFIER CONTROL BOARD 3", DSP-ISS2, dated 2007/06/08.
+- Display: standard 16x2 character LCD module (marked LCD1A), yellow-green backlight, a single row of 16 pins, separate A/K pads on the right. Contrast trimpot VR301.
+- Controller: 40-pin DIP marked T9311DP / Y534D383 9353 / D2414 3323550. No datasheet and firmware cannot be modified. It has a crystal with two 22 pF capacitors and two 9-pin 4.7k resistor networks (R907/R908, "9P4K7").
+- IC801 = 24C01 I2C EEPROM (pin 5 = SDA, pin 6 = SCL, pin 4 = GND). The volume is a rotary encoder, so the volume is fully digital.
+- Audio processor: PT2314 (I2C), on the input board. Steps of 1.25 dB, from 0 to -78.75 dB.
+- The display shows, for example, "Volume -78.75 dB" on line 1 and "PHONO" on line 2.
 
-Inferido, ainda não confirmado:
-- LCD compatível com HD44780 em barramento paralelo. Pinagem: 1 VSS, 2 VDD, 3 VO, 4 RS, 5 RW, 6 E, 7–14 D0–D7, 15/16 A/K. A orientação do pino 1 ainda precisa ser confirmada.
-- Controlador da família 8051: pino 20 = GND, pino 40 = +5 V.
-- Desconhecido: modo 4 bits ou 8 bits, e se RW vai ao GND ou se o controlador lê o busy flag.
+Inferred, not yet confirmed:
+- HD44780-compatible LCD on a parallel bus. Pinout: 1 VSS, 2 VDD, 3 VO, 4 RS, 5 RW, 6 E, 7–14 D0–D7, 15/16 A/K. The orientation of pin 1 still needs to be confirmed.
+- 8051-family controller: pin 20 = GND, pin 40 = +5 V.
+- Unknown: 4-bit or 8-bit mode, and whether RW goes to GND or the controller reads the busy flag.
 
-## Abordagem escolhida
-1. Medir primeiro, sem invadir nada:
-   - Continuidade com o multímetro, com o amp desligado da tomada. Checar LCD pino 5 contra o GND, ver se os pinos 7–10 estão ligados ou soltos (modo 4 bits), mapear os pinos 4–14 do LCD às pernas do controlador, e ver se os pinos 5/6 da 24C01 chegam ao conector J2.
-   - Analisador lógico com o amp ligado: barramento do LCD (RS, E, dados) e I2C, trocando de entrada e girando o volume.
-2. Fase de bancada: o Pico só escuta os pinos do LCD original, como entradas, com GND comum. Ele controla um 1602 reserva na protoboard. Durante essa fase o Pico é alimentado pelo USB do notebook, com o notebook na bateria.
-3. Instalação final: cortar só os pinos de sinal (4–14) entre a placa do LCD e a placa de controle. O toco de baixo (vindo do controlador) vai a uma entrada do Pico, e o de cima (para o LCD) recebe uma saída do Pico. Para reverter, basta ligar cada par de tocos. O Pico fica numa MonkMakes Prototype PCB, em espaçadores de nylon.
-4. Alimentação: VSYS a partir do LCD pino 2 (+5 V) por um diodo Schottky 1N5817, com GND no LCD pino 1.
-5. Nomes das faixas: o Orange Pi Zero 2W (OceanO) envia por Wi-Fi ao Pico 2 W.
+## Chosen approach
+1. Measure first, without touching anything:
+   - Continuity with the multimeter, with the amp unplugged. Check LCD pin 5 against GND, see whether pins 7–10 are connected or floating (4-bit mode), map LCD pins 4–14 to the controller legs, and see whether pins 5/6 of the 24C01 reach connector J2.
+   - Logic analyser with the amp on: the LCD bus (RS, E, data) and I2C, while changing input and turning the volume.
+2. Bench phase: the Pico only listens to the original LCD pins, as inputs, with a common GND. It drives a spare 1602 on the breadboard. During this phase the Pico is powered from the laptop's USB, with the laptop on battery.
+3. Final install: cut only the signal pins (4–14) between the LCD board and the control board. The lower stub (from the controller) goes to a Pico input, and the upper one (to the LCD) receives a Pico output. To revert, just connect each pair of stubs. The Pico sits on a MonkMakes Prototype PCB, on nylon standoffs.
+4. Power: VSYS from LCD pin 2 (+5 V) through a 1N5817 Schottky diode, with GND on LCD pin 1.
+5. Track names: the Orange Pi Zero 2W (OceanO) sends them over Wi-Fi to the Pico 2 W.
 
-## Restrições elétricas
-- O GPIO do Pico é 3,3 V. As entradas do RP2350 aguentam 5 V só com o chip alimentado.
-- Saídas de 3,3 V para o LCD de 5 V: testar na bancada. Se não forem confiáveis, usar shifters BSS138.
-- Errata E9 do RP2350: evitar os pull-downs internos nas entradas.
-- Nunca alimentar VSYS e USB ao mesmo tempo sem o diodo.
-- Nunca mexer no lado de 230 V. Conectar e desconectar fios só com o amp fora da tomada.
+## Electrical constraints
+- The Pico's GPIO is 3.3 V. The RP2350 inputs tolerate 5 V only while the chip is powered.
+- 3.3 V outputs into the 5 V LCD: test on the bench. If they are not reliable, use BSS138 level shifters.
+- RP2350 erratum E9: avoid the internal pull-downs on inputs.
+- Never power VSYS and USB at the same time without the diode.
+- Never touch the 230 V side. Connect and disconnect wires only with the amp unplugged.
 
-## Etapas de software
-1. Controlar o 1602 reserva a partir do Pico (hello-world e teste de contraste).
-2. Sniffer passivo do HD44780 via PIO (latch na borda de descida do E, modos 4 e 8 bits) que reconstrói o buffer 16x2 e o imprime no serial.
-3. Camada de reescrita ("PHONO" → "Turntable") que renderiza no LCD reserva.
-4. Depois: um endpoint Wi-Fi para o OceanO mandar o "now playing" (overlay temporário).
+## Software stages
+1. Drive the spare 1602 from the Pico (hello-world and contrast test).
+2. Passive HD44780 sniffer via PIO (latch on the falling edge of E, 4- and 8-bit modes) that rebuilds the 16x2 buffer and prints it on serial.
+3. Rewrite layer ("PHONO" → "Turntable") that renders on the spare LCD.
+4. Later: a Wi-Fi endpoint for OceanO to send "now playing" (temporary overlay).
 
-A seção "Arquitetura decidida" (no fim) atualiza esta lista. A instalação que acabou sendo feita está em
-`docs/proxy-ligacao.md`: o display foi dessoldado, em vez de cortar os pinos, e o Pico ficou no meio.
+The "Decided architecture" section (at the end) updates this list. The install that was actually built is in
+`docs/proxy-ligacao.md`: the display was desoldered, instead of cutting the pins, and the Pico sits in the middle.
 
-MicroPython com rp2 PIO se o timing permitir, senão o C SDK. Código simples e bem comentado.
+MicroPython with rp2 PIO if the timing allows, otherwise the C SDK. Simple, well-commented code.
 
-## Descobertas pelas fotos da petervis.com (2026-10-22)
+## Findings from the petervis.com photos (2026-10-22)
 
-Fotos em `docs/img/petervis/`, do mesmo modelo de placa ("SP103 AMPLIFIER CONTROL BOARD 3", DSP-ISS2, 2007/06/08).
+Photos in `docs/img/petervis/`, of the same board model ("SP103 AMPLIFIER CONTROL BOARD 3", DSP-ISS2, 2007/06/08).
 
-- O trimpot de contraste se chama **VR901** (10k, marcado 103), e não VR301. Fica à esquerda do LCD.
-- O módulo LCD tem uma fileira de 16 pinos no canto superior esquerdo e os pads **A** e **K** do backlight na lateral direita.
-  O trimpot fica perto da ponta esquerda, o que sugere que o pino 1 é o da esquerda (visto de frente). Falta confirmar.
-- Pela foto do lado das soldas, só parte dos 16 pinos tem trilha fina saindo para o controlador, num feixe de umas 6 ou 7 trilhas.
-  Isso combina com o **modo 4 bits** (RS, E, D4–D7, com RW ao GND), mas é só uma hipótese até medir.
-- A placa de entradas ("SP103 IO BOARD ISS1 VER 1.1") tem **dois PT2314** (U52 e U53) e o conector **CON51**
-  com 4 vias: **GND, CL, DA1, DA0**. Ou seja, um SCL comum e um SDA para cada PT2314, porque os dois têm o mesmo
-  endereço fixo. Um cabo branco de 4 fios liga o CON51 à placa frontal.
-- O display mostra, por exemplo, "Volume -26.25 dB" / "CD".
+- The contrast trimpot is called **VR901** (10k, marked 103), not VR301. It sits to the left of the LCD.
+- The LCD module has a row of 16 pins in the top left corner and the backlight **A** and **K** pads on the right side.
+  The trimpot is near the left end, which suggests pin 1 is the leftmost one (seen from the front). Still to confirm.
+- In the photo of the solder side, only some of the 16 pins have a thin trace going to the controller, in a bundle of about 6 or 7 traces.
+  This matches **4-bit mode** (RS, E, D4–D7, with RW to GND), but it is only a hypothesis until measured.
+- The input board ("SP103 IO BOARD ISS1 VER 1.1") has **two PT2314s** (U52 and U53) and connector **CON51**
+  with 4 ways: **GND, CL, DA1, DA0**. That is, a shared SCL and one SDA for each PT2314, because both have the same
+  fixed address. A white 4-wire cable connects CON51 to the front board.
+- The display shows, for example, "Volume -26.25 dB" / "CD".
 
-## Medições com o multímetro (2026-10-22)
+## Multimeter measurements (2026-10-22)
 
-Respondidas. Veja o mapa completo em `docs/ligacao-analisador.md`:
-- O barramento é de **8 bits**: D0–D7 nas pernas 39–32 (P0).
-- O **RW não vai ao GND**: ele está na perna 11 (P3.1). RS na perna 10 (P3.0), E na perna 28 (P2.7).
-- O pino 1 do LCD é a ponta esquerda, vista de frente.
+Answered. See the full map in `docs/ligacao-analisador.md`:
+- The bus is **8-bit**: D0–D7 on legs 39–32 (P0).
+- **RW does not go to GND**: it is on leg 11 (P3.1). RS on leg 10 (P3.0), E on leg 28 (P2.7).
+- LCD pin 1 is the left end, seen from the front.
 
-## Capturas com o analisador (2026-10-23)
+## Captures with the analyser (2026-10-23)
 
-Concluídas. Os detalhes estão em `docs/descobertas-protocolo.md`:
-- O controlador **lê o busy flag** antes de cada comando e de cada caractere. O Pico final precisa responder a essas leituras.
-- Ele **redesenha as duas linhas inteiras** a cada evento (volume, entrada, menu), posicionando cada caractere (cerca de 8 ms por tela).
-- Os dados ficam presos no último byte no repouso, então cortar só o pino E não deve bastar.
-- Telas: boas-vindas, modelo e versão, volume + entrada/barra, menus do Function (Bass, Treble, Balance, Loudness, Speakers).
-- O controlador manda os comandos do PT2314 no mesmo barramento I2C da 24C01?
+Done. Details in `docs/descobertas-protocolo.md`:
+- The controller **reads the busy flag** before every command and every character. The final Pico must answer these reads.
+- It **redraws both lines in full** on every event (volume, input, menu), positioning each character (about 8 ms per screen).
+- The data lines stay latched at the last byte when idle, so cutting only the E pin should not be enough.
+- Screens: welcome, model and version, volume + input/bar, Function menus (Bass, Treble, Balance, Loudness, Speakers).
+- Does the controller send the PT2314 commands on the same I2C bus as the 24C01?
 
-## Arquitetura decidida (2026-10-23)
+## Decided architecture (2026-10-23)
 
-> Atualização de 2026-11-06: o Pico agora também manda comandos pela linha do IR, por dentro do amp
-> (`proxy-ligacao.md`). Ele segue sem substituir o controlador. As páginas web saíram: o Pico só tem API, e o cliente é
-> a app do repositório amp-link. O texto abaixo fica como registro da decisão original.
+> Update from 2026-11-06: the Pico now also sends commands over the IR line, inside the amp
+> (`proxy-ligacao.md`). It still does not replace the controller. The web pages are gone: the Pico only has an API, and
+> the client is the app in the amp-link repository. The text below stays as a record of the original decision.
 
-O Pico **não** substitui o controlador e **não** emite IR. O controle do amp por IR já existe no projeto
-**groove-rig** (Broadlink, API na porta 7075, no Orange Pi "oceano").
+The Pico does **not** replace the controller and does **not** emit IR. IR control of the amp already exists in the
+**groove-rig** project (Broadlink, API on port 7075, on the Orange Pi "oceano").
 
-Os dois sistemas são independentes: o Pico pode publicar estado para qualquer cliente, inclusive o groove-rig, mas nunca
-faz requisições, envia IR nem pede que outro equipamento provoque um redraw do amplificador.
+The two systems are independent: the Pico can publish state to any client, including groove-rig, but it never makes
+requests, sends IR or asks another device to trigger an amplifier redraw.
 
-O papel do Pico:
-1. **Observar** tudo o que o controlador escreve no LCD.
-2. **Guardar o estado do amp na memória**, atualizado a cada mudança.
-3. **Oferecer esse estado pela rede** a quem quiser: groove-rig, app, página web.
-4. Reescrever ou desenhar as telas no LCD (o objetivo original).
+The Pico's role:
+1. **Observe** everything the controller writes to the LCD.
+2. **Keep the amp's state in memory**, updated on every change.
+3. **Offer that state over the network** to anyone who wants it: groove-rig, an app, a web page.
+4. Rewrite or draw the screens on the LCD (the original goal).
 
-### Estado
+### State
 
 ```json
 {
@@ -113,75 +113,78 @@ O papel do Pico:
 }
 ```
 
-- Um **leitor de telas** reconhece cada tela redesenhada e atualiza só os campos que ela mostra.
-  A tela "Bass 2 dB", por exemplo, atualiza só o `bass_db`.
-- O lado do balance (L/R) sai da posição da barra: o número é negativo dos dois lados.
-- Volume e entrada aparecem sempre na tela normal. Bass, treble, balance, loudness e speakers só aparecem quando alguém
-  abre o menu Function. Até lá ficam como "desconhecido" (`null`), ou com o último valor visto, guardado na flash.
-  O controlador guarda esses valores na EEPROM, então o último valor visto costuma continuar valendo depois de desligar.
-- Mais tarde, opcional: ouvir também o I2C do CON51 (os valores reais dos PT2314, mandados todos ao ligar o amp).
+- A **screen reader** recognises each redrawn screen and updates only the fields it shows.
+  The "Bass 2 dB" screen, for example, updates only `bass_db`.
+- The balance side (L/R) comes from the position of the bar: the number is negative on both sides.
+- Volume and input always appear on the normal screen. Bass, treble, balance, loudness and speakers only appear when
+  someone opens the Function menu. Until then they stay "unknown" (`null`), or keep the last value seen, stored in
+  flash. The controller stores these values in the EEPROM, so the last value seen usually still holds after power-off.
+- Later, optional: also listen to the CON51 I2C (the real PT2314 values, all sent when the amp powers on).
 
 ### Interface (Wi-Fi)
 
-| Endpoint | Para quê |
+| Endpoint | Purpose |
 |---|---|
-| `GET /state` | o JSON acima |
-| `GET /events` | Server-Sent Events: um aviso a cada mudança (para o groove-rig fazer ciclo fechado, por exemplo "vá para -30 dB") |
-| `GET /` | página simples para ver o estado no celular |
-| `GET /bus` | estatísticas do barramento e download das últimas palavras (CSV com horário) |
-| `GET /update` | atualização do programa pelo Wi-Fi, com senha (`docs/atualizacao-wifi.md`) |
+| `GET /state` | the JSON above |
+| `GET /events` | Server-Sent Events: a notice on every change (so groove-rig can do closed-loop control, e.g. "go to -30 dB") |
+| `GET /` | simple page to see the state on a phone |
+| `GET /bus` | bus statistics and download of the latest words (CSV with timestamps) |
+| `GET /update` | program update over Wi-Fi, password-protected (`docs/atualizacao-wifi.md`) |
 
-Wi-Fi em vez de Bluetooth: o OceanO e o groove-rig já estão na rede, e o navegador do celular basta (sem app).
+Wi-Fi rather than Bluetooth: OceanO and groove-rig are already on the network, and the phone's browser is enough (no
+app).
 
-### Em aberto
+### Open
 
-- **Saber quando o amp desliga.** Ao desligar, o controlador não escreve nada no LCD. As opções são alimentar o Pico separado
-  e medir o 5 V do amp num GPIO (com divisor), ou o groove-rig tratar "Pico não responde" como "amp desligado".
-  Decidir na instalação final.
+- **Knowing when the amp turns off.** On power-off, the controller writes nothing to the LCD. The options are to power
+  the Pico separately and measure the amp's 5 V on a GPIO (with a divider), or for groove-rig to treat "Pico not
+  responding" as "amp off". Decide at the final install.
 
-### Ordem das etapas
+### Order of stages
 
-| # | Etapa | Precisa do amp? |
+| # | Stage | Needs the amp? |
 |---|---|---|
-| 1 | Bancada: o Pico desenha no display reserva as telas capturadas, a partir de um estado | não |
-| 2 | Leitor de telas (tela → estado), testado no Mac com as capturas `.lac` | não |
-| 3 | Wi-Fi: `/state`, `/events` e página, com estado de teste | não |
-| 4 | Sniffer real (PIO) no barramento do LCD do amp | sim, só ouvindo |
-| 5 | Consumo opcional de `/state` e `/events` pelo groove-rig | sim |
-| 6 | Instalação final (interceptar o LCD, alimentação, detecção de power) | sim (feita em 2026-10-29, menos a detecção de power) |
+| 1 | Bench: the Pico draws the captured screens on the spare display, from a state | no |
+| 2 | Screen reader (screen → state), tested on the Mac with the `.lac` captures | no |
+| 3 | Wi-Fi: `/state`, `/events` and page, with test state | no |
+| 4 | Real sniffer (PIO) on the amp's LCD bus | yes, listening only |
+| 5 | Optional consumption of `/state` and `/events` by groove-rig | yes |
+| 6 | Final install (intercept the LCD, power, power detection) | yes (done on 2026-10-29, except power detection) |
 
-### Andamento
+### Progress
 
-- **Etapa 2 feita (2026-10-23):** `firmware/amp_state.py` (leitor de telas, compatível com MicroPython) e
-  `tools/test_amp_state.py` (18 telas escritas à mão + reprodução das capturas `.lac`). Todas as telas boas das
-  capturas viram estado; telas estragadas por fio solto são rejeitadas (`screen: "unknown"`, sem mudar os campos).
-- Abaixo de 5 dB de balance a barra não aparece, então o lado fica `null` até passar de 5 dB.
-- Falta confirmar qual canal a barra indica (barra à direita = canal direito atenuado, ou o som foi para a direita?).
-- **Etapa 1 feita (2026-10-23):** `firmware/lcd1602.py` (driver 4 bits, só escrita), `firmware/sp103_screens.py`
-  (estado → tela, com o CGRAM do amp) e `firmware/demo_telas.py`. Todas as telas e as 8 figuras aparecem certas no
-  1602 azul, com os sinais de 3,3 V do Pico (sem conversor de nível). O VO foi direto ao GND.
-  Mau contato nos fios só enfiados nos furos embaralha o modo 4 bits; o programa reinicia o display antes de cada tela
-  para se recuperar sozinho. Solução definitiva: soldar barra de pinos.
-- **Etapa 3 feita (2026-10-23):** Wi-Fi em segundo plano (sem rede, o display segue normal), `/state`, `/events`,
-  `/names` e página; nomes das entradas e textos de inicialização personalizáveis pela página (`firmware/names.json`
-  no Pico); `main.py` roda tudo sozinho ao ligar.
-- **Interceptação (etapa 6), análise (2026-10-23):** sobrescrever em paralelo é inviável (o controlador segura E e dados
-  com força) e o T9311 não tem soquete. Opções em `docs/opcoes-intercepcao.md`.
-- **Etapa 4, firmware pronto (2026-10-24):** `firmware/escuta.py` + `sniffer.py` (PIO + DMA circular) + `hd44780.py`.
-  Testado com as capturas (`tools/test_sniffer.py`) e no Pico sem o amp (`tools/teste_sniffer_pico.py`); `main.py` agora
-  roda a escuta. Sem resistores em série, e o Pico alimentado pelo pino 2 do LCD (5 V presente mesmo em standby) no VSYS.
-- **Atualização pelo Wi-Fi e página /bus (2026-10-24):** `firmware/ota.py` + `main.py` (volta automática para a versão
-  anterior) e `tools/enviar.py`, ver `docs/atualizacao-wifi.md`. `firmware/buslog.py`: estatísticas do barramento e
-  download das últimas palavras (hoje 8192) com horário (`tools/ler_bus.py` remonta as telas). Testado na bancada com um
-  amp de mentira (`tools/teste_bus_pico.py`), incluindo as voltas automáticas.
-- **Escrita sem corte (2026-10-24 a 10-28), aposentada:** o Pico, em paralelo com o display, só puxava fios para 0 e
-  conseguia mostrar nomes curtos (REGA, TAPE), só a partir do segundo redesenho. Resumo e lições em
-  `docs/opcoes-intercepcao.md`; o código está no histórico do git (até `6be4eb2`).
-- **Instalação dentro do amp (2026-10-24):** o Pico fica dentro, alimentado pelo pino 2 do LCD (fio vermelho no VSYS,
-  pino 39); atualização só pelo Wi-Fi (`tools/enviar.py`).
-- **Etapa 6 feita: o Pico como proxy (2026-10-29):** display dessoldado nos pinos 4–14 (opção 3b). O Pico lê o
-  controlador, responde "livre" ao busy flag (`firmware/busy.py`) e desenha as telas com os nomes personalizados
-  (`firmware/proxy.py`). Qualquer texto de até 16 caracteres, desde a primeira tela. Testado no amp e com as capturas
-  (`tools/test_proxy.py`). Instalação: `docs/proxy-ligacao.md`.
-- **VU meter (2026-10-29):** opcional, pela página. Os dados vêm do groove-detector por uma ponte nova no Orange Pi
-  (`relay/`, UDP), sem mudar o detector. Ver `docs/vu.md`.
+- **Stage 2 done (2026-10-23):** `firmware/amp_state.py` (screen reader, MicroPython-compatible) and
+  `tools/test_amp_state.py` (18 hand-written screens + replay of the `.lac` captures). Every good screen in the
+  captures becomes state; screens corrupted by a loose wire are rejected (`screen: "unknown"`, fields unchanged).
+- Below 5 dB of balance the bar does not appear, so the side stays `null` until it goes past 5 dB.
+- Still to confirm which channel the bar indicates (bar on the right = right channel attenuated, or the sound moved to
+  the right?).
+- **Stage 1 done (2026-10-23):** `firmware/lcd1602.py` (4-bit driver, write-only), `firmware/sp103_screens.py`
+  (state → screen, with the amp's CGRAM) and `firmware/demo_telas.py`. All screens and the 8 glyphs show correctly on
+  the blue 1602, with the Pico's 3.3 V signals (no level shifter). VO went straight to GND.
+  Poor contact on wires just pushed into the holes scrambles 4-bit mode; the program resets the display before each
+  screen to recover by itself. Permanent fix: solder a pin header.
+- **Stage 3 done (2026-10-23):** Wi-Fi in the background (with no network, the display carries on normally),
+  `/state`, `/events`, `/names` and page; input names and boot texts customisable from the page
+  (`firmware/names.json` on the Pico); `main.py` runs everything by itself at power-on.
+- **Interception (stage 6), analysis (2026-10-23):** overwriting in parallel is not feasible (the controller drives E
+  and data strongly) and the T9311 has no socket. Options in `docs/opcoes-intercepcao.md`.
+- **Stage 4, firmware ready (2026-10-24):** `firmware/escuta.py` + `sniffer.py` (PIO + circular DMA) + `hd44780.py`.
+  Tested with the captures (`tools/test_sniffer.py`) and on the Pico without the amp (`tools/teste_sniffer_pico.py`);
+  `main.py` now runs the sniffer. No series resistors, and the Pico powered from LCD pin 2 (5 V present even in
+  standby) into VSYS.
+- **Wi-Fi update and /bus page (2026-10-24):** `firmware/ota.py` + `main.py` (automatic rollback to the previous
+  version) and `tools/enviar.py`, see `docs/atualizacao-wifi.md`. `firmware/buslog.py`: bus statistics and download of
+  the latest words (8192 today) with timestamps (`tools/ler_bus.py` rebuilds the screens). Tested on the bench with a
+  fake amp (`tools/teste_bus_pico.py`), including the automatic rollbacks.
+- **Writing without cutting (2026-10-24 to 10-28), retired:** the Pico, in parallel with the display, only pulled wires
+  to 0 and managed to show short names (REGA, TAPE), only from the second redraw on. Summary and lessons in
+  `docs/opcoes-intercepcao.md`; the code is in the git history (up to `6be4eb2`).
+- **Install inside the amp (2026-10-24):** the Pico sits inside, powered from LCD pin 2 (red wire to VSYS, pin 39);
+  updates over Wi-Fi only (`tools/enviar.py`).
+- **Stage 6 done: the Pico as proxy (2026-10-29):** display desoldered at pins 4–14 (option 3b). The Pico reads the
+  controller, answers "free" to the busy flag (`firmware/busy.py`) and draws the screens with the custom names
+  (`firmware/proxy.py`). Any text up to 16 characters, from the first screen. Tested on the amp and with the captures
+  (`tools/test_proxy.py`). Install: `docs/proxy-ligacao.md`.
+- **VU meter (2026-10-29):** optional, from the page. The data comes from groove-detector through a new bridge on the
+  Orange Pi (`relay/`, UDP), without changing the detector. See `docs/vu.md`.

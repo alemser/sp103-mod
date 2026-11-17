@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Testa no computador os ajustes diretos (firmware/control.py), com um amp de mentira.
+"""Tests the direct controls (firmware/control.py) on the computer, with a fake amp.
 
     python3 tools/test_control.py
 """
@@ -11,7 +11,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "firmware"))
 
-asyncio.sleep_ms = lambda ms: asyncio.sleep(0)   # sem espera de verdade nos testes
+asyncio.sleep_ms = lambda ms: asyncio.sleep(0)   # no real waiting in the tests
 
 import control   # noqa: E402
 
@@ -19,7 +19,7 @@ ORDER = ("normal", "bass", "treble", "balance", "loudness", "speakers")
 
 
 class FakeAmp:
-    """Faz o papel do estado, do IR e do painel. glitch: cliques em que o amp também vai a PHONO."""
+    """Stands in for the state, the IR and the panel. glitch: clicks on which the amp also jumps to PHONO."""
 
     def __init__(self, glitch=()):
         self.power, self.screen, self.input_id = "on", "normal", "cd"
@@ -55,7 +55,7 @@ class FakeAmp:
         elif self.opened:
             self.volume_db += 1.25 * sign
         else:
-            self.opened = True          # o primeiro toque só abre a tela do volume
+            self.opened = True          # the first press only opens the volume screen
 
 
 def run(amp, **query):
@@ -82,11 +82,11 @@ amp = FakeAmp()
 run(amp, target="loudness", on="1")
 assert amp.loudness is True and amp.keys == ["volume_up"]
 run(amp, target="loudness", on="1")
-assert amp.keys == ["volume_up"]    # já estava ligado: nada a mudar
+assert amp.keys == ["volume_up"]    # already on: nothing to change
 run(amp, target="speakers", on="0")
 assert amp.speakers is False and amp.keys[-1] == "volume_down"
 
-# O clique que vai a PHONO: volta à entrada anterior e segue até o menu.
+# The click that jumps to PHONO: goes back to the previous input and carries on to the menu.
 amp = FakeAmp(glitch=[2])
 run(amp, target="loudness", on="1")
 assert amp.input_id == "cd" and amp.loudness is True and "select_cd" in amp.keys
@@ -99,14 +99,14 @@ for query in ({"target": "x", "dir": "up"}, {"target": "bass"}, {"target": "bass
     except ValueError as e:
         assert str(e) == "Unknown control"
 
-# Uma tecla vale também em standby, e só as conhecidas passam.
+# A key also works in standby, and only known ones go through.
 amp = FakeAmp()
 amp.power = "standby"
 run(amp, target="key", name="power_toggle")
 assert amp.keys == ["power_toggle"]
 try:
     run(amp, target="key", name="x")
-    raise AssertionError("tecla desconhecida")
+    raise AssertionError("unknown key")
 except ValueError as e:
     assert str(e) == "Unknown key"
 
@@ -118,4 +118,4 @@ try:
 except ValueError as e:
     assert str(e) == "The amp isn't on"
 assert amp.keys == []
-print("tudo certo")
+print("all good")

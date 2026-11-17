@@ -1,7 +1,7 @@
-# Modelo do arquivo de senhas. Copie para secrets.py (que fica fora do git) e preencha.
-UPDATE_PASSWORD = ""  # senha da atualização pelo Wi-Fi (tools/enviar.py); vazio = desligada
+# Template for the passwords file. Copy it to secrets.py (which stays out of git) and fill it in.
+UPDATE_PASSWORD = ""  # password for updates over Wi-Fi (tools/enviar.py); empty = disabled
 
-# A rede Wi-Fi é configurada pela rede própria do Pico e fica no wifi.json (docs/wifi.md). Estas duas linhas só valem
-# enquanto não houver wifi.json (Picos instalados antes disso); podem ficar vazias.
+# The Wi-Fi network is set up through the Pico's own network and kept in wifi.json (docs/wifi.md). These two lines only
+# apply while there is no wifi.json (Picos installed before that); they may stay empty.
 WIFI_SSID = ""
 WIFI_PASSWORD = ""

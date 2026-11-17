@@ -1,11 +1,11 @@
-"""Bancada, etapa 3: estado do amp na rede, com um "amp de mentira".
+"""Bench, stage 3: the amp's state on the network, with a "fake amp".
 
-Um amp simulado desenha as telas do SP103 no display reserva, como o controlador
-faria. Cada tela passa pelo leitor (amp_state), exatamente como vai acontecer
-com o sniffer, e o estado é publicado em http://sp103.local/ (ou pelo IP).
+A simulated amp draws the SP103 screens on the spare display, as the controller
+would. Each screen goes through the reader (amp_state), exactly as it will
+with the sniffer, and the state is published at http://sp103.local/ (or by IP).
 
-Rodar pelo computador:  .venv/bin/mpremote run firmware/bancada_wifi.py
-Ou sozinho, ao ligar o Pico: main.py importa este arquivo (ver main.py).
+Run from the computer:  .venv/bin/mpremote run firmware/bancada_wifi.py
+Or standalone, when the Pico powers up: main.py imports this file (see main.py).
 """
 
 import time
@@ -20,27 +20,27 @@ from web import Publisher
 from wifi import Wifi
 
 lcd = Lcd1602()
-texts = names.load()                    # textos personalizados (names.py)
+texts = names.load()                    # custom texts (names.py)
 state = AmpState(texts["inputs"])
 last_screen = ("", "")
 net = Wifi(model="sp103", hostname="sp103", prefix="SP103")
 pub = None
-notice_until = None                     # enquanto houver um aviso no display, as telas esperam
+notice_until = None                     # while a notice is on the display, the screens wait
 
 
 def draw(l1, l2):
-    """Desenha no display a tela do amp, já com os nomes da tabela."""
+    """Draws the amp's screen on the display, with the names from the table already applied."""
     if notice_until is not None:
-        return                          # aviso na tela: notice() redesenha quando acabar
-    lcd.reset()                         # recupera o display de um mau contato (ver lcd1602.py)
+        return                          # notice on screen: notice() redraws when it ends
+    lcd.reset()                         # recovers the display from a bad contact (see lcd1602.py)
     for code, rows in enumerate(s.CGRAM):
         lcd.define_char(code, rows)
     lcd.show(*names.rewrite(l1, l2, texts))
 
 
 def show(screen):
-    """O "amp" desenhou uma tela: o leitor lê a original e o display mostra a reescrita,
-    como vai ser no amp de verdade."""
+    """The "amp" drew a screen: the reader reads the original and the display shows the rewritten one,
+    as it will be on the real amp."""
     global last_screen
     last_screen = screen
     if state.update(screen[0], screen[1], time.ticks_ms()):
@@ -49,7 +49,7 @@ def show(screen):
 
 
 def set_texts(cfg):
-    """Chamado pelo PUT /names: valida, guarda na flash e aplica na hora."""
+    """Called by PUT /names: validates, saves to flash and applies right away."""
     global texts
     texts = names.validate(cfg)
     names.save(texts)
@@ -59,7 +59,7 @@ def set_texts(cfg):
 
 
 class FakeAmp:
-    """Imita o controlador: guarda valores e desenha as mesmas telas que ele."""
+    """Imitates the controller: keeps values and draws the same screens it does."""
 
     def __init__(self):
         self.volume = -28.75
@@ -83,7 +83,7 @@ class FakeAmp:
             self.volume = min(0.0, max(-78.75, self.volume + step))
             show(s.volume_bar(self.volume))
             await asyncio.sleep(0.4)
-        await asyncio.sleep(2)          # a barra volta sozinha ao nome da entrada
+        await asyncio.sleep(2)          # the bar goes back to the input name by itself
         show(s.normal(self.volume, self.input))
 
     async def select_input(self, name):
@@ -91,7 +91,7 @@ class FakeAmp:
         show(s.normal(self.volume, self.input))
 
     async def function_menu(self):
-        """Os 5 menus do Function, mexendo num valor qualquer, e volta à tela normal."""
+        """The 5 Function menus, changing some value, then back to the normal screen."""
         self.bass = random.choice((-4, -2, 0, 2, 4, 6))
         self.treble = random.choice((-2, 0, 2))
         side = random.choice(("L", "R", None))
@@ -116,11 +116,11 @@ async def demo():
         await asyncio.sleep(4)
         await amp.function_menu()
         await asyncio.sleep(4)
-        await amp.power_on()            # repete as telas de inicialização, para ver os textos personalizados
+        await amp.power_on()            # repeats the boot screens, to show the custom texts
 
 
 async def notice(line1, line2, seconds=3):
-    """Mostra um aviso por alguns segundos e depois volta à tela do amp."""
+    """Shows a notice for a few seconds, then goes back to the amp's screen."""
     global notice_until
     notice_until = True
     lcd.reset()
@@ -131,7 +131,7 @@ async def notice(line1, line2, seconds=3):
 
 
 def wifi_result(ok, info):
-    # Só avisa no display se a primeira tentativa falhar; depois segue tudo normal, sem rede.
+    # Only shows a notice if the first attempt fails; after that everything carries on, without network.
     if not ok:
         asyncio.create_task(notice("Wi-Fi failed", "offline mode"))
 
@@ -141,9 +141,9 @@ async def main():
     pub = Publisher(state, get_names=lambda: texts, set_names=set_texts,
                     routes={"/wifi": net.handle, "/": net.page})
     asyncio.create_task(net.task(wifi_result))
-    await asyncio.sleep(0.1)            # o Wi-Fi liga antes do servidor abrir o socket
-    await pub.serve()                   # atende assim que houver rede
-    await demo()                        # o display começa na hora, com ou sem Wi-Fi
+    await asyncio.sleep(0.1)            # Wi-Fi starts before the server opens the socket
+    await pub.serve()                   # serves as soon as there is a network
+    await demo()                        # the display starts right away, with or without Wi-Fi
 
 
 asyncio.run(main())

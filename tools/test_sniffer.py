@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Testa no computador o caminho do sniffer (firmware/hd44780.py) com as capturas .lac.
+"""Tests the sniffer path (firmware/hd44780.py) on the computer with the .lac captures.
 
-Monta as palavras que o PIO leria a cada descida do E, passa pelo Bus do firmware e
-entrega cada tela completa ao leitor (amp_state), como o escuta.py faz no Pico.
-Confere que as telas saem iguais às do decodificador das capturas (tools/test_amp_state.py).
+Builds the words the PIO would read on each falling edge of E, runs them through the firmware's
+Bus and hands each complete screen to the reader (amp_state), as escuta.py does on the Pico.
+Checks that the screens come out the same as the capture decoder's (tools/test_amp_state.py).
 
-    python3 tools/test_sniffer.py                     # todas as capturas em captures/
+    python3 tools/test_sniffer.py                     # every capture in captures/
     python3 tools/test_sniffer.py captures/04-phono-b.lac
 """
 
@@ -22,13 +22,13 @@ from amp_state import AmpState   # noqa: E402
 from hd44780 import Bus   # noqa: E402
 from test_amp_state import QUIET_US, screens   # noqa: E402
 
-# Capturas com fios soltos (ver docs/descobertas-protocolo.md): o RW falhou, então
-# leituras viram escritas e a tela sai diferente. Não servem para comparar.
+# Captures with loose wires (see docs/descobertas-protocolo.md): RW failed, so
+# reads turn into writes and the screen comes out different. Not usable for comparison.
 SKIP = {"13-function-1.lac", "13-function-todos.lac", "03-liga-telas.lac"}
 
 
 def words_from_lac(path):
-    """(tempo em µs, palavra) a cada descida do E, no formato do sniffer."""
+    """(time in µs, word) on each falling edge of E, in the sniffer's format."""
     freq, pre, _, by_number, by_name = hd.load_lac(path)
     sig = hd.pick_signals(by_number, by_name)
     e, us = sig["E"], 1e6 / freq
@@ -58,7 +58,7 @@ def screens_from_words(words):
 
 
 def screens_reference(path):
-    """As mesmas telas pelo decodificador das capturas (o caminho já testado)."""
+    """The same screens through the capture decoder (the already tested path)."""
     freq, pre, _, by_number, by_name = hd.load_lac(path)
     events, _, _, _ = hd.decode(hd.pick_signals(by_number, by_name), freq, pre)
     lcd, got, pending, last_t = hd.Lcd(), [], False, None
@@ -90,10 +90,10 @@ def main():
         for l1, l2 in got:
             st.update(l1, l2, 0)
         d = st.to_dict()
-        print("%s %-22s %3d telas, %4d escritas, %4d leituras, clear=%d  -> %s | %s" % (
-            "ok   " if ok else "FALHA", name, len(got), bus.writes, bus.reads, bus.clears,
+        print("%s %-22s %3d screens, %4d writes, %4d reads, clear=%d  -> %s | %s" % (
+            "ok   " if ok else "FAIL ", name, len(got), bus.writes, bus.reads, bus.clears,
             d["lcd"][0], d["lcd"][1]))
-    print("\n%s" % ("tudo igual ao decodificador" if not bad else "%d captura(s) diferente(s)" % bad))
+    print("\n%s" % ("all good: everything matches the decoder" if not bad else "%d capture(s) differ" % bad))
     sys.exit(1 if bad else 0)
 
 

@@ -1,38 +1,39 @@
-"""VU meter no display do amp: os canais L e R, com a marca de pico, em quatro layouts.
+"""VU meter on the amp's display: the L and R channels, with the peak mark, in four layouts.
 
-Os quadros vêm do sp103-vu-relay (relay/main.go), que repassa o VU do groove-detector
-por UDP. O Pico pede a cada 2 s ("SUB1"); cada quadro tem 12 bytes:
+Frames come from sp103-vu-relay (relay/main.go), which forwards the groove-detector's VU
+over UDP. The Pico subscribes every 2 s ("SUB1"); each frame is 12 bytes:
 
-    "VU" 0x01 flags  float32 L  float32 R      (RMS 0..1; flags: bit 0 = há música)
+    "VU" 0x01 flags  float32 L  float32 R      (RMS 0..1; flags: bit 0 = music playing)
 
-Layouts (names.py "layout"); cada um tem os seus 8 desenhos próprios (CGRAM), em
-Vu.glyphs, e ao sair o proxy.py grava de volta os do controlador:
+Layouts (names.py "layout"); each has its own 8 custom characters (CGRAM), in Vu.glyphs,
+and on leaving proxy.py writes the controller's back:
 
-- "bars", barras finas: linha 1 = L, linha 2 = R. A coluna 0 mostra a letra; as colunas
-  1..15 são a barra, com 5 colunas de pixels cada: 75 passos do piso até o topo. As marcas
-  da escala ficam a -30, -20, -10, -6 e -3 dB do topo.
-- "deck", deck de cassete: como "bars", mas com dois segmentos separados por célula (30
-  passos); os das 3 últimas células são mais altos, no lugar da zona vermelha. O pico é
-  um segmento aceso sozinho; o clip acende a última célula.
-- "scale", escala impressa: L e R dividem a linha 1 (L na metade de cima de cada célula,
-  R na de baixo; 2 segmentos por célula, 32 passos). A linha 2 é a régua, em dB abaixo
-  do topo. O pico é um segmento aceso sozinho; no clip, o "0" da régua vira um bloco cheio
-  (o caractere 255 da ROM, fora dos 8 desenhos).
-- "kx393", o medidor do Yamaha KX-393: L e R dividem a linha 1, sem letras, um segmento
-  por célula (16 passos) na escala do deck, que não é linear: -30 a +8 dB, de 2 em 2 perto
-  do 0. O 0 do deck fica KX_ZERO dB abaixo do topo, e os segmentos acima dele são mais
-  altos, no lugar do vermelho. A linha 2 é a régua do deck. O pico é um segmento aceso
-  sozinho; o clip acende o último.
+- "bars", thin bars: line 1 = L, line 2 = R. Column 0 shows the letter; columns 1..15
+  are the bar, 5 pixel columns each: 75 steps from floor to top. The scale ticks sit at
+  -30, -20, -10, -6 and -3 dB from the top.
+- "deck", cassette deck: like "bars", but with two separate segments per cell (30 steps);
+  those in the last 3 cells are taller, in place of the red zone. The peak is a single
+  lit segment; clip lights the last cell.
+- "scale", printed scale: L and R share line 1 (L in the top half of each cell, R in the
+  bottom; 2 segments per cell, 32 steps). Line 2 is the ruler, in dB below the top. The
+  peak is a single lit segment; on clip, the ruler's "0" becomes a full block (ROM
+  character 255, outside the 8 custom characters).
+- "kx393", the Yamaha KX-393 meter: L and R share line 1, no letters, one segment per
+  cell (16 steps) on the deck's scale, which is not linear: -30 to +8 dB, in steps of 2
+  near 0. The deck's 0 sits KX_ZERO dB below the top, and the segments above it are
+  taller, in place of the red. Line 2 is the deck's ruler. The peak is a single lit
+  segment; clip lights the last one.
 
-Escala (names.py): o REC OUT chega em níveis bem diferentes conforme a fonte (medido em
-2026-10-29 no Pi 5: DAB perto de -30 dBFS, o vinil perto de -11). Na escala automática,
-o topo fica AUTO_HEADROOM dB acima do quadro mais alto: sobe na hora e, com música, desce
-AUTO_FALL_DB_S; o piso fica AUTO_SPAN dB abaixo do topo. A configuração só tem a automática; a
-manual (piso e topo fixos, "auto": False) ficou para os testes, que precisam da escala parada.
+Scale (names.py): REC OUT arrives at very different levels depending on the source
+(measured on 2026-10-29 on the Pi 5: DAB near -30 dBFS, vinyl near -11). With the
+automatic scale, the top sits AUTO_HEADROOM dB above the loudest frame: it rises at once
+and, with music, falls at AUTO_FALL_DB_S; the floor sits AUTO_SPAN dB below the top. The
+settings only offer the automatic one; the manual one (fixed floor and top, "auto": False)
+is kept for the tests, which need a still scale.
 
-A barra sobe na hora e a cheia esvazia em FALL_S. O pico fica parado 1 s e cai a escala
-inteira em PEAK_FALL_S. Acima de -1 dBFS (o clip de verdade, não o topo) o clip acende
-por 1 s.
+The bar rises at once and a full bar empties in FALL_S. The peak holds for 1 s and falls
+the whole scale in PEAK_FALL_S. Above -1 dBFS (real clipping, not the top) the clip
+lights for 1 s.
 """
 
 import math
@@ -44,22 +45,22 @@ import udp
 
 PORT = 7091
 SUBSCRIBE = b"SUB1"
-SUBSCRIBE_MS = 2000             # o relay esquece o pedido em 6 s
-STALE_MS = 1000                 # sem quadro por 1 s: volta a tela do amp
-FALL_S = 0.5                    # a barra cheia esvazia em 0,5 s (proporcional à escala)
+SUBSCRIBE_MS = 2000             # the relay forgets the subscription after 6 s
+STALE_MS = 1000                 # no frame for 1 s: back to the amp screen
+FALL_S = 0.5                    # a full bar empties in 0.5 s (proportional to the scale)
 PEAK_HOLD_MS = 1000
 PEAK_FALL_S = 1.0
-# A música varia pouco de um quadro para outro (vinil em 2026-10-29: 90 % dos quadros numa
-# faixa de 7 dB). Com 20 dB, como um VU de ponteiro, e 5 dB de folga, a barra fica entre
-# metade e 3/4 e se mexe; com 30 dB e 3 dB ela ficava parada perto do fim.
-AUTO_SPAN = 20                  # escala automática: do piso ao topo
-AUTO_HEADROOM = 5               # o topo fica 5 dB acima do quadro mais alto
-AUTO_FALL_DB_S = 1              # e desce 1 dB/s com música (de -3 a -27 em 24 s)
-AUTO_TOP = (-40, 0)             # limites do topo automático
+# Music varies little from one frame to the next (vinyl on 2026-10-29: 90 % of frames
+# within 7 dB). With 20 dB, like a needle VU, and 5 dB of headroom, the bar stays between
+# half and 3/4 and moves; with 30 dB and 3 dB it sat still near the end.
+AUTO_SPAN = 20                  # automatic scale: floor to top
+AUTO_HEADROOM = 5               # the top sits 5 dB above the loudest frame
+AUTO_FALL_DB_S = 1              # and falls 1 dB/s with music (from -3 to -27 in 24 s)
+AUTO_TOP = (-40, 0)             # limits of the automatic top
 CLIP_DB = -1
 CLIP_MS = 1000
-STEPS = 75                      # 15 células x 5 colunas de pixels
-TICKS_DB = (-30, -20, -10, -6, -3)   # abaixo do topo
+STEPS = 75                      # 15 cells x 5 pixel columns
+TICKS_DB = (-30, -20, -10, -6, -3)   # below the top
 SILENT_DB = -100.0
 FLAG_PROGRAMME = 1
 LAYOUTS = ("bars", "deck", "scale", "kx393")
@@ -69,54 +70,54 @@ def _rows(bits, rows):
     return bytes([bits if r in rows else 0 for r in range(8)])
 
 
-_BAR = (1, 2, 3, 4, 5, 6)       # a barra deixa a linha de pixels de cima e a de baixo livres
+_BAR = (1, 2, 3, 4, 5, 6)       # the bar leaves the top and bottom pixel rows free
 GLYPHS = b"".join((
-    _rows(0x10, _BAR),          # 0: 1 coluna
-    _rows(0x18, _BAR),          # 1: 2 colunas
-    _rows(0x1C, _BAR),          # 2: 3 colunas
-    _rows(0x1E, _BAR),          # 3: 4 colunas
-    _rows(0x1F, _BAR),          # 4: célula cheia
-    _rows(0x04, range(8)),      # 5: marca de pico, mais alta que a barra
-    _rows(0x04, (7,)),          # 6: marca da escala, no fundo da barra vazia
-    _rows(0x1F, range(8)),      # 7: clip, na última célula
+    _rows(0x10, _BAR),          # 0: 1 column
+    _rows(0x18, _BAR),          # 1: 2 columns
+    _rows(0x1C, _BAR),          # 2: 3 columns
+    _rows(0x1E, _BAR),          # 3: 4 columns
+    _rows(0x1F, _BAR),          # 4: full cell
+    _rows(0x04, range(8)),      # 5: peak mark, taller than the bar
+    _rows(0x04, (7,)),          # 6: scale tick, at the bottom of the empty bar
+    _rows(0x1F, range(8)),      # 7: clip, in the last cell
 ))
 FULL, PEAK, TICK, CLIP = 4, 5, 6, 7
 
 DECK_GLYPHS = b"".join((
-    _rows(0x18, _BAR),          # 0: segmento da esquerda
-    _rows(0x1B, _BAR),          # 1: os dois segmentos
-    _rows(0x03, _BAR),          # 2: o da direita (pico sozinho)
-    _rows(0x18, range(8)),      # 3..5: os mesmos na zona quente, mais altos
+    _rows(0x18, _BAR),          # 0: left segment
+    _rows(0x1B, _BAR),          # 1: both segments
+    _rows(0x03, _BAR),          # 2: the right one (lone peak)
+    _rows(0x18, range(8)),      # 3..5: the same in the hot zone, taller
     _rows(0x1B, range(8)),
     _rows(0x03, range(8)),
-    _rows(0x04, (7,)),          # 6: marca da escala
-    bytes(8),                   # 7: sem uso
+    _rows(0x04, (7,)),          # 6: scale tick
+    bytes(8),                   # 7: unused
 ))
-DECK_HOT, DECK_TICK = 12, 6     # da célula 12 em diante: zona quente
+DECK_HOT, DECK_TICK = 12, 6     # from cell 12 on: hot zone
 
-# Escala impressa: estado de cada canal numa célula = 0 apagado, 1 só o segmento da
-# esquerda, 2 os dois. O desenho do par (l, r) é o código 3 * l + r - 1.
+# Printed scale: state of each channel in a cell = 0 off, 1 only the left segment,
+# 2 both. The character for the pair (l, r) is code 3 * l + r - 1.
 _HALF = (0, 0x18, 0x1B)
 SCALE_GLYPHS = b"".join(
     bytes([_HALF[l] if y < 3 else _HALF[r] if 4 <= y < 7 else 0 for y in range(8)])
     for l in range(3) for r in range(3) if l or r)
-# Na ordem de prioridade: uma marca que não cabe sem encostar noutra fica de fora.
+# In priority order: a mark that does not fit without touching another is left out.
 SCALE_MARKS = ((0, "0"), (-20, "20"), (-10, "10"), (-30, "30"), (-6, "6"), (-3, "3"))
-BLOCK = chr(255)                # bloco cheio da ROM do HD44780
+BLOCK = chr(255)                # full block from the HD44780 ROM
 
-# KX-393: os degraus da escala do deck, em dB a partir do 0 dele (um por célula).
+# KX-393: the steps of the deck's scale, in dB from its 0 (one per cell).
 KX_DB = (-30, -25, -20, -17, -14, -12, -10, -8, -6, -4, -2, 0, 2, 4, 6, 8)
-KX_ZERO = -10                   # o 0 do deck, abaixo do topo: os trechos mais altos chegam ao +4
-KX_RULER = "30 17 10 4 0 4 8"   # cada número começa embaixo do seu segmento
+KX_ZERO = -10                   # the deck's 0, below the top: the loudest passages reach +4
+KX_RULER = "30 17 10 4 0 4 8"   # each number starts under its segment
 
 
 def _kx(left, right, hot):
-    """Um segmento do KX-393: L nas linhas de cima, R nas de baixo; o quente é mais alto."""
+    """One KX-393 segment: L on the top rows, R on the bottom ones; the hot one is taller."""
     rows_l, rows_r = ((0, 1, 2), (5, 6, 7)) if hot else ((1, 2), (5, 6))
     return bytes([0x1E if (left and y in rows_l) or (right and y in rows_r) else 0 for y in range(8)])
 
 
-# Código = 3 se quente + 0 só L, 1 só R, 2 os dois; 6 e 7 sem uso.
+# Code = 3 if hot + 0 L only, 1 R only, 2 both; 6 and 7 unused.
 KX_GLYPHS = b"".join(_kx(l, r, hot) for hot in (0, 1) for l, r in ((1, 0), (0, 1), (1, 1))) + bytes(16)
 
 
@@ -125,7 +126,7 @@ def db(rms):
 
 
 class Meter:
-    """Um canal: nível com queda lenta, pico parado e clip."""
+    """One channel: level with slow fall, peak hold and clip."""
 
     def __init__(self):
         self.level = SILENT_DB
@@ -162,7 +163,7 @@ class Vu:
         self.last_frame = None
         self.programme = False
         self.frames = 0
-        self.error = None               # o proxy.py desliga o VU se ele der erro
+        self.error = None               # proxy.py turns the VU off if it raises an error
         self.L = Meter()
         self.R = Meter()
         self.layout = "bars"
@@ -171,7 +172,7 @@ class Vu:
         self._ruler = " " * 16
 
     def configure(self, cfg):
-        """cfg = names.json "vu": {"on", "auto", "layout", "relay"} (+ "floor" e "top" sem "auto")."""
+        """cfg = names.json "vu": {"on", "auto", "layout", "relay"} (+ "floor" and "top" without "auto")."""
         self.on = cfg["on"]
         self.layout = cfg["layout"]
         self.glyphs = {"bars": GLYPHS, "deck": DECK_GLYPHS, "scale": SCALE_GLYPHS,
@@ -179,32 +180,32 @@ class Vu:
         self.error = None
         self.auto = cfg["auto"]
         if self.auto:
-            # O topo começa embaixo: o primeiro quadro com música já o leva ao lugar.
+            # The top starts low: the first frame with music moves it into place.
             self.top = AUTO_TOP[0]
             self.floor = self.top - AUTO_SPAN
         else:
             self.floor = cfg["floor"]
             self.top = cfg["top"]
-        # As marcas e a régua ficam a distâncias fixas do topo: na escala automática, que
-        # só se desloca, as células delas não mudam.
+        # The ticks and the ruler sit at fixed distances from the top: on the automatic
+        # scale, which only shifts, their cells do not change.
         per_cell = 2 if self.layout == "deck" else 5
         steps = 15 * per_cell
         self._ticks = tuple(c for c in ((self._px(self.top + d, steps) - 1) // per_cell
                                         for d in TICKS_DB if self.top + d > self.floor) if c >= 0)
         span = self.top - self.floor
-        ruler = [" "] * 18              # com uma casa vazia de cada lado
+        ruler = [" "] * 18              # with one empty slot on each side
         for d, text in SCALE_MARKS:
             if d < -span:
                 continue
             col = 1 + min(16 - len(text), int((d + span) * 15 / span + 0.5))
             if all(c == " " for c in ruler[col - 1:col + len(text) + 1]):
-                ruler[col:col + len(text)] = list(text)   # o MicroPython só aceita lista aqui
+                ruler[col:col + len(text)] = list(text)   # MicroPython only accepts a list here
         self._ruler = "".join(ruler[1:17])
         addr = (cfg["relay"], PORT)
         if addr != self.addr or not self.on:
             self.close()
         self.addr = addr
-        self.last_sub = None            # pede logo
+        self.last_sub = None            # subscribe right away
 
     def close(self):
         if self.sock is not None:
@@ -218,7 +219,7 @@ class Vu:
         return 0 if x < 0 else steps if x > steps else x
 
     def poll(self, now):
-        """Pede e lê os quadros (sem esperar). True se chegou um quadro novo."""
+        """Request and read frames (without waiting). True if a new frame arrived."""
         if not self.on:
             return False
         if self.sock is None:
@@ -230,13 +231,13 @@ class Vu:
             try:
                 self.sock.sendto(SUBSCRIBE, self.addr)
             except OSError:
-                pass                    # sem Wi-Fi ainda: tenta de novo em 2 s
+                pass                    # no Wi-Fi yet: try again in 2 s
         new = False
         while udp.ready(self._poll):
             try:
                 data = self.sock.recv(32)
             except OSError:
-                break                   # nada na fila
+                break                   # nothing in the queue
             if len(data) != 12 or data[:3] != b"VU\x01":
                 continue
             _, _, flags, left, right = struct.unpack("<2sBBff", data)
@@ -255,14 +256,14 @@ class Vu:
         return new
 
     def _follow(self, value_db, dt_ms):
-        """Escala automática: o topo sobe na hora até o quadro + folga e desce devagar."""
+        """Automatic scale: the top rises at once to frame + headroom and falls slowly."""
         want = value_db + AUTO_HEADROOM
         top = want if want > self.top else max(want, self.top - AUTO_FALL_DB_S * dt_ms / 1000)
         self.top = min(AUTO_TOP[1], max(AUTO_TOP[0], top))
         self.floor = self.top - AUTO_SPAN
 
     def active(self, now):
-        """Ligado, com quadros chegando e música tocando."""
+        """On, with frames arriving and music playing."""
         return self.on and self.programme and self.last_frame is not None \
             and time.ticks_diff(now, self.last_frame) < STALE_MS
 
@@ -303,12 +304,12 @@ class Vu:
 
     @staticmethod
     def _half(lv, pk, c):
-        """Estado de um canal na célula c da escala impressa (0, 1 ou 2)."""
+        """State of one channel in cell c of the printed scale (0, 1 or 2)."""
         s = lv - 2 * c
         s = 0 if s < 0 else 2 if s > 2 else s
         if s or pk <= lv or (pk - 1) // 2 != c:
             return s
-        return 1 if pk % 2 else 2       # o pico sozinho: só o da direita não tem desenho
+        return 1 if pk % 2 else 2       # lone peak: only the right one has no character
 
     def _scale(self):
         l, r = self._px(self.L.level, 32), self._px(self.R.level, 32)
@@ -323,7 +324,7 @@ class Vu:
         return "".join(out), ruler
 
     def _kx_lit(self, m):
-        """Os segmentos acesos de um canal no KX-393: a barra, o pico sozinho e o clip."""
+        """The lit segments of one channel on the KX-393: the bar, the lone peak and the clip."""
         zero = self.top + KX_ZERO
         lv = sum(1 for d in KX_DB if m.level >= zero + d)
         pk = sum(1 for d in KX_DB if m.peak >= zero + d)

@@ -1,11 +1,11 @@
-"""Os códigos do controle remoto do SP103, como pulsos na linha do IR.
+"""The SP103's remote codes, as pulses on the IR line.
 
-Decodificados do perfil do groove-rig (internal/catalog/profiles/acoustic_solutions_sp103.yaml,
-capturados com um Broadlink RM4): início longo, os bytes 20 E1 DB, o byte do comando, o inverso
-dele e dois bits 1, sempre com o bit menos significativo primeiro. Depois de 24 ms vem o aviso
-de repetição, igual ao que o controle manda. tools/test_ir.py confere os bits contra o perfil.
+Decoded from the groove-rig profile (internal/catalog/profiles/acoustic_solutions_sp103.yaml,
+captured with a Broadlink RM4): a long leader, the bytes 20 E1 DB, the command byte, its
+inverse and two 1 bits, always LSB first. After 24 ms comes the repeat code, just like
+the remote sends. tools/test_ir.py checks the bits against the profile.
 
-frame() roda igual no MicroPython (Pico) e no Python do computador.
+frame() runs the same in MicroPython (Pico) and in the computer's Python.
 """
 
 COMMANDS = {"power_toggle": 0x77, "volume_up": 0x7F, "volume_down": 0x7B, "bass": 0x6F, "treble": 0x73,
@@ -13,16 +13,16 @@ COMMANDS = {"power_toggle": 0x77, "volume_up": 0x7F, "volume_down": 0x7B, "bass"
             "select_dvd": 0x6B, "select_dab": 0x5F}
 
 PREFIX = (0x20, 0xE1, 0xDB)
-# Tempos em µs medidos na própria linha do IR, com o controle real (2026-11-06). Os do Broadlink
-# são cerca de 5% mais longos, e com eles o controlador não reagiu.
+# Times in µs measured on the IR line itself, with the real remote (2026-11-06). The Broadlink's
+# are about 5% longer, and with them the controller did not react.
 LEADER_MARK, LEADER_SPACE = 9030, 4470
 MARK, SPACE_0, SPACE_1 = 600, 545, 1665
 REPEAT_GAP = 22750
-END_SPACE = 1000                        # a lista sempre termina em espaço (ver ir.py)
+END_SPACE = 1000                        # the list always ends with a space (see ir.py)
 
 
 def frame(command):
-    """Os tempos em µs de um comando: linha em 0, linha solta, linha em 0, e assim por diante."""
+    """A command's times in µs: line at 0, line released, line at 0, and so on."""
     code = COMMANDS[command]
     words = [LEADER_MARK, LEADER_SPACE]
     for byte in PREFIX + (code, code ^ 0xFF):

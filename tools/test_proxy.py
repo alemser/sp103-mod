@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Simula no computador o firmware/proxy.py com as capturas .lac do amp.
+"""Simulates firmware/proxy.py on the computer with the amp's .lac captures.
 
-1. Responder (busy.py): confere nas capturas a suposição do programa do PIO, de que o RW
-   já está no valor certo na subida do E e não muda até a descida.
-2. Proxy: roda o laço listen() do proxy.py com um sniffer, um relógio e um display de
-   mentira, alimentado com as palavras das capturas, e confere que o display do amp
-   mostra cada tela do controlador já com os nomes personalizados (names.rewrite).
+1. Responder (busy.py): checks in the captures the PIO program's assumption that RW
+   already holds the right value on E's rising edge and doesn't change until the falling edge.
+2. Proxy: runs proxy.py's listen() loop with a fake sniffer, clock and display, fed with
+   the words from the captures, and checks that the amp's display shows each of the
+   controller's screens already with the custom names (names.rewrite).
 
     python3 tools/test_proxy.py
 """
@@ -30,7 +30,7 @@ NAMES = {"inputs": {"TUNER": "Rega Planar 2", "TAPE/AUX": "Yamaha KX-393", "CD":
          "boot": ["", ""], "about": ["Oceano Amplifier", "SP103"]}
 
 
-# --- 1. a suposição do Responder ----------------------------------------------
+# --- 1. the Responder's assumption ----------------------------------------------
 
 def check_rw(path):
     freq, pre, _, by_number, by_name = hd.load_lac(path)
@@ -51,7 +51,7 @@ def check_rw(path):
     return reads, bad
 
 
-# --- 2. o proxy.py ------------------------------------------------------------
+# --- 2. proxy.py ------------------------------------------------------------
 
 class Clock:
     us = 0
@@ -71,7 +71,7 @@ def fake_time():
 
 
 class FakeLcd:
-    """O display do amp, visto de fora: o que o proxy mandou mostrar."""
+    """The amp's display, seen from outside: what the proxy told it to show."""
     def __init__(self, *a, **k):
         self.lines, self.cgram, self.on, self.resyncs = [" " * 16, " " * 16], bytearray(64), True, 0
 
@@ -89,12 +89,12 @@ class FakeLcd:
 
     def write_line(self, row, text, old=None):
         assert len(text) == 16, text
-        assert old is None or old == self.lines[row], (old, self.lines[row])   # o proxy sabe o que está lá
+        assert old is None or old == self.lines[row], (old, self.lines[row])   # the proxy knows what is there
         self.lines[row] = text
 
 
 class FakeSniffer:
-    words = []                          # (µs, palavra)
+    words = []                          # (µs, word)
 
     def read(self):
         while self.words and self.words[0][0] <= Clock.us:
@@ -102,7 +102,7 @@ class FakeSniffer:
 
 
 class QuietSource:
-    """O socket UDP do info.py quando o teste não usa as telas: nunca chega pacote."""
+    """info.py's UDP socket when the test doesn't use the screens: no packet ever arrives."""
     def __init__(self, *a):
         pass
 
@@ -130,14 +130,14 @@ def load_proxy():
              "wifi": types.SimpleNamespace(Wifi=lambda **kw: None)}
     saved = {k: sys.modules.get(k) for k in stubs}
     sys.modules.update(stubs)
-    run, asyncio.run = asyncio.run, lambda coro: coro.close()   # não roda o main()
+    run, asyncio.run = asyncio.run, lambda coro: coro.close()   # doesn't run main()
     try:
         import names
         names.load = lambda: names.validate(NAMES)
         names.save = lambda cfg: None
         sys.modules.pop("proxy", None)
         import proxy
-        # O Pico pede os pacotes das telas sempre: aqui a fonte fica muda (nada vai para a rede).
+        # The Pico always asks for the screen packets: here the source stays silent (nothing goes to the network).
         proxy.info_feed.socket = types.SimpleNamespace(socket=QuietSource, AF_INET=2, SOCK_DGRAM=2)
     finally:
         asyncio.run = run
@@ -155,10 +155,10 @@ def _tick(ms):
 
 
 def run_capture(proxy, words):
-    """Roda o listen() do proxy sobre as palavras; devolve as telas que o display mostrou."""
+    """Runs the proxy's listen() over the words; returns the screens the display showed."""
     import names
     proxy.asyncio = types.SimpleNamespace(sleep_ms=_tick)
-    proxy.powers = []                   # o "power" a cada mudança do estado
+    proxy.powers = []                   # the "power" at each state change
     proxy.pub = types.SimpleNamespace(changed=lambda: proxy.powers.append(proxy.state.power))
     t0 = words[0][0] if words else 0
     FakeSniffer.words = [(int(t - t0) + 1000, w) for t, w in words]
@@ -175,7 +175,7 @@ def run_capture(proxy, words):
 
 
 class FakeRelay:
-    """O socket UDP do vu.py: o relay entrega um quadro a cada 46 ms, de start a stop (ms)."""
+    """vu.py's UDP socket: the relay delivers a frame every 46 ms, from start to stop (ms)."""
     start, stop, music = 0, 0, True
 
     def __init__(self, *a):
@@ -199,14 +199,14 @@ class FakeRelay:
 
 
 def run_vu(proxy, words, end_ms):
-    """Roda o listen() com o VU ligado; devolve [(ms, "vu" ou a tela do amp)] a cada troca."""
+    """Runs listen() with the VU on; returns [(ms, "vu" or the amp's screen)] at each change."""
     proxy.asyncio = types.SimpleNamespace(sleep_ms=_tick)
     proxy.pub = types.SimpleNamespace(changed=lambda: None)
     proxy.vu_meter.socket = types.SimpleNamespace(socket=FakeRelay, AF_INET=2, SOCK_DGRAM=2)
     proxy.vu.configure({"on": True, "auto": False, "floor": -40, "top": 0, "layout": "bars",
                         "relay": "192.168.178.105"})
     t0 = words[0][0]
-    FakeSniffer.words = [(int(t - t0) + 1_000_000, w) for t, w in words]   # a tela do amp em 1 s
+    FakeSniffer.words = [(int(t - t0) + 1_000_000, w) for t, w in words]   # the amp's screen at 1 s
     Clock.us = 0
     changes, loop = [], proxy.listen()
     while Clock.us < end_ms * 1000:
@@ -220,7 +220,7 @@ def run_vu(proxy, words, end_ms):
 
 
 def check_vu(path):
-    """VU no ar; a tela do amp chega em 1 s e fica 3 s; os quadros param em 6 s."""
+    """VU on the air; the amp's screen arrives at 1 s and stays 3 s; the frames stop at 6 s."""
     fails = 0
     proxy = load_proxy()
     FakeRelay.start, FakeRelay.stop, FakeRelay.music = 0, 6000, True
@@ -235,27 +235,27 @@ def check_vu(path):
     def ok(cond, what):
         nonlocal fails
         fails += not cond
-        print("%-5s %s" % ("ok" if cond else "FALHA", what))
+        print("%-5s %s" % ("ok" if cond else "FAIL", what))
 
-    ok(kinds[:4] == ["vu", "amp", "vu", "amp"], "VU, tela do amp, VU, tela do amp: %s" % kinds)
-    ok(amp == ("Volume -28.75 dB", "Rega Planar 2   "), "a tela do amp já com o nome: %r" % (amp,))
+    ok(kinds[:4] == ["vu", "amp", "vu", "amp"], "VU, amp screen, VU, amp screen: %s" % kinds)
+    ok(amp == ("Volume -28.75 dB", "Rega Planar 2   "), "the amp's screen already with the name: %r" % (amp,))
     if len(changes) >= 4:
         t_amp, t_vu, t_end = at["amp"][0], at["vu"][1], at["amp"][1]
-        ok(1000 <= t_amp <= 1020, "a tela do amp entra quando o controlador desenha (%d ms)" % t_amp)
-        ok(3000 <= t_vu - t_amp <= 3060, "e fica 3 s (%d ms)" % (t_vu - t_amp))
-        ok(6900 <= t_end <= 7100, "sem quadros por 1 s, volta a tela do amp (%d ms)" % t_end)
-    ok(bytes(proxy.lcd.cgram) == bytes(proxy.bus.lcd.cgram), "os desenhos do controlador voltam")
+        ok(1000 <= t_amp <= 1020, "the amp's screen comes in when the controller draws (%d ms)" % t_amp)
+        ok(3000 <= t_vu - t_amp <= 3060, "and stays 3 s (%d ms)" % (t_vu - t_amp))
+        ok(6900 <= t_end <= 7100, "no frames for 1 s, the amp's screen comes back (%d ms)" % t_end)
+    ok(bytes(proxy.lcd.cgram) == bytes(proxy.bus.lcd.cgram), "the controller's glyphs come back")
 
     proxy = load_proxy()
     FakeRelay.start, FakeRelay.stop, FakeRelay.music = 0, 6000, False
     changes = run_vu(proxy, words_from_lac(path), 3000)
-    ok(all(k != "vu" for _, k in changes), "sem música, o VU não aparece")
+    ok(all(k != "vu" for _, k in changes), "without music, the VU doesn't show")
     return fails
 
 
 class FakeSource:
-    """O socket UDP do info.py: a fonte manda um pacote "NP" a cada 5 s, tocando Time (A4)
-    desde 2:41 no instante 0, como o sp103-vu-relay (os tempos valem no envio)."""
+    """info.py's UDP socket: the source sends an "NP" packet every 5 s, playing Time (A4)
+    from 2:41 at instant 0, like sp103-vu-relay (the times hold at send time)."""
     def __init__(self, *a):
         self.next = 0
         self.sent = []
@@ -280,7 +280,7 @@ class FakeSource:
 
 
 def run_info(proxy, words, end_ms, info_cfg):
-    """Roda o listen() com as telas ligadas (e o VU salvo ligado); devolve as telas a cada troca."""
+    """Runs listen() with the screens on (and the VU saved as on); returns the screens at each change."""
     import names
     proxy.asyncio = types.SimpleNamespace(sleep_ms=_tick)
     proxy.pub = types.SimpleNamespace(changed=lambda: None)
@@ -291,7 +291,7 @@ def run_info(proxy, words, end_ms, info_cfg):
     proxy.configure_feeds(cfg)
     proxy.amp_until = 0
     t0 = words[0][0]
-    FakeSniffer.words = [(int(t - t0) + 1_000_000, w) for t, w in words]   # a tela do amp em 1 s
+    FakeSniffer.words = [(int(t - t0) + 1_000_000, w) for t, w in words]   # the amp's screen at 1 s
     Clock.us = 0
     changes, loop = [], proxy.listen()
     while Clock.us < end_ms * 1000:
@@ -304,22 +304,22 @@ def run_info(proxy, words, end_ms, info_cfg):
 
 
 def check_info(path):
-    """Telas de informação: a agulha no modo fixo e no temporário, com a tela do amp no meio."""
+    """Info screens: the stylus in fixed and temporary mode, with the amp's screen in between."""
     fails = 0
 
     def ok(cond, what):
         nonlocal fails
         fails += not cond
-        print("%-5s %s" % ("ok" if cond else "FALHA", what))
+        print("%-5s %s" % ("ok" if cond else "FAIL", what))
 
     proxy = load_proxy()
     changes = run_info(proxy, words_from_lac(path), 6000, {"on": True, "mode": "fixed"})
     kinds = [k if isinstance(k, str) else "amp" for _, k, _ in changes if k != (" " * 16,) * 2]
-    ok(kinds == ["amp", "stylus"], "fixo, no toca-discos (TUNER): a tela do amp, depois a agulha: %s" % kinds)
-    ok(not proxy.vu.on, "fixo: o VU nem pede quadros")
+    ok(kinds == ["amp", "stylus"], "fixed, on the turntable (TUNER): the amp's screen, then the stylus: %s" % kinds)
+    ok(not proxy.vu.on, "fixed: the VU doesn't even ask for frames")
     first = next(l for _, k, l in changes if k == "stylus")
-    ok(first[0] == "Stylus     312 h" and first[1].endswith(" 62%"), "a tela da agulha: %r" % (first,))
-    ok(bytes(proxy.lcd.cgram[:64]) == proxy.screens_mod.GLYPHS, "as telas usam os desenhos de barra do VU")
+    ok(first[0] == "Stylus     312 h" and first[1].endswith(" 62%"), "the stylus screen: %r" % (first,))
+    ok(bytes(proxy.lcd.cgram[:64]) == proxy.screens_mod.GLYPHS, "the screens use the VU's bar glyphs")
 
     proxy = load_proxy()
     changes = run_info(proxy, words_from_lac(path), 30000, {"on": True, "mode": "temp", "secs": 5})
@@ -328,12 +328,12 @@ def check_info(path):
         k = k if isinstance(k, str) else "amp"
         if k != "amp" or not kinds or kinds[-1] != "amp":
             kinds.append(k)
-    ok(kinds == ["vu", "amp", "stylus", "vu"], "temporário: a tela do amp mostra a entrada (TUNER), a agulha, "
-       "depois o VU: %s" % kinds)
-    # A última ocorrência de cada tela é a relevante: há um VU antes da tela
-    # do amp e outro depois da agulha. A iteração normal deixa o último vencer.
+    ok(kinds == ["vu", "amp", "stylus", "vu"], "temporary: the amp's screen shows the input (TUNER), the stylus, "
+       "then the VU: %s" % kinds)
+    # The last occurrence of each screen is the relevant one: there is a VU before the amp's
+    # screen and another after the stylus. Plain iteration lets the last one win.
     at = {k: t for t, k, _ in changes if isinstance(k, str)}
-    ok(4990 <= at["vu"] - at["stylus"] <= 5110, "a agulha fica 5 s: %d ms" % (at["vu"] - at["stylus"]))
+    ok(4990 <= at["vu"] - at["stylus"] <= 5110, "the stylus stays 5 s: %d ms" % (at["vu"] - at["stylus"]))
 
     proxy = load_proxy()
     run_info(proxy, words_from_lac(path), 1500, {"on": True, "mode": "fixed"})
@@ -346,8 +346,8 @@ def check_info(path):
 
 
 class StreamSource(QuietSource):
-    """O socket UDP do info.py: a fonte manda um pacote "NP" a cada 5 s, com o streaming de
-    StreamSource.stream ("bluetooth", "airplay" ou "") e nada do disco."""
+    """info.py's UDP socket: the source sends an "NP" packet every 5 s, with the streaming from
+    StreamSource.stream ("bluetooth", "airplay" or "") and nothing about the record."""
     stream = ""
 
     def __init__(self, *a):
@@ -363,14 +363,14 @@ class StreamSource(QuietSource):
 
 
 def check_stream(path):
-    """Entrada DAB (09-dab.lac, chamada "Streaming"): o nome do streaming no lugar dela."""
+    """DAB input (09-dab.lac, named "Streaming"): the streaming's name in its place."""
     import names
     fails = 0
 
     def ok(cond, what):
         nonlocal fails
         fails += not cond
-        print("%-5s %s" % ("ok" if cond else "FALHA", what))
+        print("%-5s %s" % ("ok" if cond else "FAIL", what))
 
     words = words_from_lac(path)
     for stream, want in (("bluetooth", "\x07 Bluetooth     "), ("airplay", "AirPlay         "),
@@ -382,31 +382,31 @@ def check_stream(path):
         StreamSource.stream = stream
         got = run_capture(proxy, words)
         line2 = got[-1][1] if got else None
-        ok(line2 == want, "%s: a linha da entrada mostra %r" % (stream or "sem streaming", line2))
+        ok(line2 == want, "%s: the input line shows %r" % (stream or "no streaming", line2))
         glyph7 = bytes(proxy.lcd.cgram[56:])
         want7 = proxy.screens_mod.BT_GLYPH if stream == "bluetooth" else bytes(proxy.bus.lcd.cgram[56:])
-        ok(glyph7 == want7, "  desenho 7: %s" % ("o símbolo do Bluetooth" if stream == "bluetooth"
-                                                    else "o do controlador"))
+        ok(glyph7 == want7, "  glyph 7: %s" % ("the Bluetooth symbol" if stream == "bluetooth"
+                                                 else "the controller's"))
     return fails
 
 
 def main():
     paths = sorted(glob.glob(os.path.join(HERE, "..", "captures", "*.lac")))
     fails = 0
-    print("1. Responder: RW igual na subida e na descida do E")
+    print("1. Responder: RW the same on E's rising and falling edges")
     for p in paths:
         r = check_rw(p)
         name = os.path.basename(p)
         if r is None:
-            print("--    %-24s sem RW" % name)
+            print("--    %-24s no RW" % name)
             continue
         reads, bad = r
         ok = bad == 0 or name in SKIP
         fails += not ok
-        print("%-5s %-24s %4d leituras, %d mudanças no meio do pulso%s"
-              % ("ok" if ok else "FALHA", name, reads, bad, " (fios soltos)" if bad and ok else ""))
+        print("%-5s %-24s %4d reads, %d changes mid-pulse%s"
+              % ("ok" if ok else "FAIL", name, reads, bad, " (loose wires)" if bad and ok else ""))
 
-    print("\n2. Proxy: o display mostra cada tela do controlador, com os nomes")
+    print("\n2. Proxy: the display shows each of the controller's screens, with the names")
     import names
     for p in paths:
         name = os.path.basename(p)
@@ -421,30 +421,30 @@ def main():
             if not want or want[-1] != s:
                 want.append(s)
         if want and want[0] == (" " * 16,) * 2:
-            want = want[1:]             # tela vazia: o display já começa assim
+            want = want[1:]             # blank screen: the display already starts that way
         got = run_capture(proxy, words)
-        # O busy_high aqui vem do display de verdade das capturas (ocupado logo depois do
-        # "Clear display"); só no amp, com o Responder, ele precisa ficar em 0.
+        # busy_high here comes from the captures' real display (busy right after
+        # "Clear display"); only in the amp, with the Responder, does it need to stay at 0.
         ok = got == want and (not got or bytes(proxy.lcd.cgram) == bytes(proxy.bus.lcd.cgram))
-        # Nenhuma captura tem o standby: a tela em branco do ligar não pode virar "standby".
+        # No capture has standby: the blank screen at power-on must not become "standby".
         ok = ok and "standby" not in proxy.powers
         fails += not ok
-        last = " | ".join(got[-1]) if got else "(nada)"
-        print("%-5s %-24s %3d telas, busy_high=%d, power=%s  ->  %s"
-              % ("ok" if ok else "FALHA", name, len(got), proxy.busy_high, proxy.state.power, last))
+        last = " | ".join(got[-1]) if got else "(nothing)"
+        print("%-5s %-24s %3d screens, busy_high=%d, power=%s  ->  %s"
+              % ("ok" if ok else "FAIL", name, len(got), proxy.busy_high, proxy.state.power, last))
         if not ok and got != want:
             for i, (g, w) in enumerate(zip(got + [None] * len(want), want + [None] * len(got))):
                 if g != w:
-                    print("      tela %d: mostrou %r, esperado %r" % (i, g, w))
+                    print("      screen %d: showed %r, expected %r" % (i, g, w))
                     break
 
-    print("\n3. VU: alterna com a tela do amp (05-tuner.lac)")
+    print("\n3. VU: alternates with the amp's screen (05-tuner.lac)")
     fails += check_vu(os.path.join(HERE, "..", "captures", "05-tuner.lac"))
-    print("\n4. Telas de informação (05-tuner.lac)")
+    print("\n4. Info screens (05-tuner.lac)")
     fails += check_info(os.path.join(HERE, "..", "captures", "05-tuner.lac"))
-    print("\n5. Streaming na entrada DAB (09-dab.lac)")
+    print("\n5. Streaming on the DAB input (09-dab.lac)")
     fails += check_stream(os.path.join(HERE, "..", "captures", "09-dab.lac"))
-    print("\ntudo certo" if not fails else "\n%d falha(s)" % fails)
+    print("\nall good" if not fails else "\n%d failure(s)" % fails)
     sys.exit(1 if fails else 0)
 
 

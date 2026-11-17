@@ -1,13 +1,13 @@
-# Registro do projeto
+# Project record
 
-Estes documentos contam como o projeto chegou até aqui e não descrevem o estado atual. A instalação atual está em
-`../proxy-ligacao.md`, e a API em `../api-estado.md`.
+These documents tell how the project got here and do not describe the current state. The current install is in
+`../proxy-ligacao.md`, and the API in `../api-estado.md`.
 
-| Documento | Conteúdo |
+| Document | Contents |
 |---|---|
-| `brief.md` | O objetivo inicial, a arquitetura e o andamento por etapa |
-| `opcoes-intercepcao.md` | Por que o Pico precisa ficar no meio, e as opções analisadas |
-| `roteiro-medicoes.md`, `roteiro-captura.md` | Roteiros das medições e das capturas |
+| `brief.md` | The initial goal, the architecture and the progress by stage |
+| `opcoes-intercepcao.md` | Why the Pico has to sit in the middle, and the options considered |
+| `roteiro-medicoes.md`, `roteiro-captura.md` | Plans for the measurements and the captures |
 
-Os caminhos citados nestes textos são os da época. O programa do analisador lógico saiu do repositório em 2026-11-06:
-ele vem de https://github.com/gusmanb/logicanalyzer.
+The paths mentioned in these texts are the ones from that time. The logic analyser software left the repository on
+2026-11-06: it comes from https://github.com/gusmanb/logicanalyzer.

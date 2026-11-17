@@ -1,61 +1,61 @@
-# Wi-Fi do Pico: configurar sem cabo e achar sem IP
+# Pico Wi-Fi: set up without a cable and find without an IP
 
-O Pico guarda a rede de casa no `wifi.json` e é configurado pela rede Wi-Fi dele mesmo, sem cabo USB. A app acha o Pico
-na rede sozinha, sem IP digitado. O programa fica em `firmware/wifi.py`; os testes, em `tools/test_wifi.py`.
+The Pico keeps the home network in `wifi.json` and is set up through its own Wi-Fi network, without a USB cable. The app finds the Pico
+on the network by itself, with no IP typed in. The program lives in `firmware/wifi.py`; the tests, in `tools/test_wifi.py`.
 
-Decidido em 2026-11-08, depois de testar na bancada as duas formas:
+Decided on 2026-11-08, after testing both approaches on the bench:
 
-- **Bluetooth, como o Oceano: descartado.** O Android pede o pareamento, mas ele nunca termina: o MicroPython oficial
-  do Pico 2 W vem com o pareamento desligado (`MICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING = 0`). Sem pareamento, a
-  senha do Wi-Fi passaria aberta pelo ar.
-- **A rede própria do Pico: escolhida.** Funciona com o MicroPython oficial e com o Wi-Fi que o Pico já usa.
+- **Bluetooth, like Oceano: rejected.** Android asks for pairing, but it never completes: the official MicroPython
+  for the Pico 2 W ships with pairing disabled (`MICROPY_PY_BLUETOOTH_ENABLE_PAIRING_BONDING = 0`). Without pairing, the
+  Wi-Fi password would travel over the air in the clear.
+- **The Pico's own network: chosen.** It works with the official MicroPython and with the Wi-Fi the Pico already uses.
 
-## Como funciona
+## How it works
 
-1. **Sem rede salva**, o Pico abre na hora a rede de configuração **`AmpLink-SP103-XXXX`** (XXXX = o fim do endereço
-   do chip). A senha é **`amplink-setup`**, a mesma em todos os Picos; a app conhece. Toda rede de configuração começa
-   com `AmpLink-` (o MR 780 vai abrir `AmpLink-MR780-XXXX`): a app pede ao Android uma rede com esse começo, sem
-   precisar da permissão de localização para procurar redes.
-2. **Com rede salva que não conecta** (senha do roteador trocada, roteador desligado), o Pico continua tentando a cada
-   30 s e, depois de 2 minutos sem conseguir, abre também a rede de configuração.
-3. Quem entra na rede de configuração (a app, ou o navegador do celular em `http://192.168.4.1/`) escolhe a rede e
-   manda a senha. O Pico conecta **sem fechar a rede de configuração**, para quem configurou ler o IP, e fecha 60 s
-   depois. Se a rede nova falhar, ele volta para a anterior e diz o motivo.
-4. **Trocar de rede com o Pico conectado:** `POST /wifi/setup` abre a rede de configuração por 10 minutos, sem largar a
-   rede de casa.
-5. **Achar o Pico:** a app manda `AMPLINK?` por broadcast UDP, porta **47800**, e o Pico responde
-   `{"name": "SP103-D85E", "model": "sp103", "ip": "192.168.1.77"}`. Mandar umas 3 vezes em 2 s: o primeiro pacote às
-   vezes se perde.
+1. **With no saved network**, the Pico immediately opens the setup network **`AmpLink-SP103-XXXX`** (XXXX = the end of the
+   chip's address). The password is **`amplink-setup`**, the same on every Pico; the app knows it. Every setup network starts
+   with `AmpLink-` (the MR 780 will open `AmpLink-MR780-XXXX`): the app asks Android for a network with that prefix, without
+   needing the location permission to scan for networks.
+2. **With a saved network that does not connect** (router password changed, router off), the Pico keeps trying every
+   30 s and, after 2 minutes without success, also opens the setup network.
+3. Whoever joins the setup network (the app, or the phone's browser at `http://192.168.4.1/`) picks the network and
+   sends the password. The Pico connects **without closing the setup network**, so whoever set it up can read the IP, and closes it 60 s
+   later. If the new network fails, it goes back to the previous one and says why.
+4. **Changing network with the Pico connected:** `POST /wifi/setup` opens the setup network for 10 minutes, without leaving the
+   home network.
+5. **Finding the Pico:** the app sends `AMPLINK?` by UDP broadcast, port **47800**, and the Pico answers
+   `{"name": "SP103-D85E", "model": "sp103", "ip": "192.168.1.77"}`. Send it about 3 times in 2 s: the first packet is
+   sometimes lost.
 
-A rede de configuração só fica aberta quando o Pico está sem Wi-Fi (ou por 10 minutos, quando pedido). Uma senha fixa
-basta para isso: quem entra nela só consegue trocar a rede do Pico.
+The setup network is only open when the Pico has no Wi-Fi (or for 10 minutes, when requested). A fixed password
+is enough for that: whoever joins it can only change the Pico's network.
 
-## Rotas
+## Routes
 
-| Rota | O quê |
+| Route | What |
 |---|---|
-| `GET /wifi` | `{"state", "detail", "ip", "ssid", "setup": {"open", "ssid"}}`. `state` e `detail` são a última tentativa: `idle`, `connecting`, `connected`, ou `failed` com o motivo (`wrong password`, `network not found`, `connection failed`, `timeout`). `ip` é o endereço de agora na rede de casa; `ssid`, a rede salva |
-| `GET /wifi/networks` | As redes que o Pico vê: `[{"ssid", "rssi", "secure"}]`, uma por nome, da mais forte para a mais fraca, até 20. Leva ~1 s |
-| `PUT /wifi` | `{"ssid": "Casa", "psk": "..."}` (sem `psk`, ou vazio = rede aberta; senão de 8 a 63 caracteres). Responde `202` na hora; o resultado sai no `GET /wifi`. **Só com a rede de configuração aberta**, senão `403` |
-| `POST /wifi/setup` | Abre a rede de configuração por 10 minutos |
-| `DELETE /wifi` | Esquece a rede salva. Só com a rede de configuração aberta |
-| `GET /` | A página de configuração (escolher a rede e digitar a senha), só com a rede de configuração aberta. Fora disso, o Pico continua sem página web |
+| `GET /wifi` | `{"state", "detail", "ip", "ssid", "setup": {"open", "ssid"}}`. `state` and `detail` are the last attempt: `idle`, `connecting`, `connected`, or `failed` with the reason (`wrong password`, `network not found`, `connection failed`, `timeout`). `ip` is the current address on the home network; `ssid`, the saved network |
+| `GET /wifi/networks` | The networks the Pico sees: `[{"ssid", "rssi", "secure"}]`, one per name, strongest to weakest, up to 20. Takes ~1 s |
+| `PUT /wifi` | `{"ssid": "Casa", "psk": "..."}` (no `psk`, or empty = open network; otherwise 8 to 63 characters). Answers `202` right away; the result shows in `GET /wifi`. **Only with the setup network open**, otherwise `403` |
+| `POST /wifi/setup` | Opens the setup network for 10 minutes |
+| `DELETE /wifi` | Forgets the saved network. Only with the setup network open |
+| `GET /` | The setup page (pick the network and type the password), only with the setup network open. Otherwise, the Pico still has no web page |
 
-As rotas também respondem pela rede de casa: a app pode ler o `GET /wifi` a qualquer momento.
+The routes also answer on the home network: the app can read `GET /wifi` at any time.
 
-## Picos instalados antes desta versão
+## Picos installed before this version
 
-Sem `wifi.json`, o Pico usa o `WIFI_SSID` e o `WIFI_PASSWORD` do `secrets.py`, como antes. Na primeira configuração
-pela rede própria, o `wifi.json` passa a valer, e essas duas linhas do `secrets.py` podem sair (pelo cabo, quando for
-conveniente). O `UPDATE_PASSWORD` continua no `secrets.py`.
+Without `wifi.json`, the Pico uses `WIFI_SSID` and `WIFI_PASSWORD` from `secrets.py`, as before. On the first setup
+through its own network, `wifi.json` takes over, and those two lines in `secrets.py` can go (over the cable, when
+convenient). `UPDATE_PASSWORD` stays in `secrets.py`.
 
-O `wifi.json` não é um `.py`: a atualização pelo Wi-Fi (`atualizacao-wifi.md`) nunca o envia, apaga ou devolve.
+`wifi.json` is not a `.py`: the update over Wi-Fi (`atualizacao-wifi.md`) never sends, deletes or restores it.
 
-## Detalhes do Pico encontrados na bancada
+## Pico details found on the bench
 
-- No `WLAN.scan()` do MicroPython para o Pico, o 6º campo é uma contagem (sempre 1 ou mais), não "rede oculta". A rede
-  oculta aparece só com o nome vazio.
-- O scan funciona com a rede de configuração aberta.
-- O corpo de um pedido precisa ser lido antes da resposta: se o Pico fecha a conexão com bytes não lidos, o cliente
-  perde a resposta.
-- Redes com página de login ou com usuário (hotel, empresa) não funcionam: o Pico não tem como preencher.
+- In MicroPython's `WLAN.scan()` for the Pico, the 6th field is a count (always 1 or more), not "hidden network". A hidden
+  network only shows up with an empty name.
+- Scanning works with the setup network open.
+- A request body must be read before the response: if the Pico closes the connection with unread bytes, the client
+  loses the response.
+- Networks with a login page or with a username (hotel, company) do not work: the Pico has no way to fill them in.

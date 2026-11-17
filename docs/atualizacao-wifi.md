@@ -1,21 +1,24 @@
-# Atualizar o programa do Pico pelo Wi-Fi
+# Updating the Pico's program over Wi-Fi
 
-Com o Pico instalado dentro do amp, o cabo USB fica difícil de usar (e com o fio do VSYS ligado, é até perigoso: ver
-`proxy-ligacao.md`, "Regra do USB"). Por isso o programa novo vai pelo Wi-Fi, com senha, e o Pico **volta sozinho para a
-versão anterior** se a nova não funcionar.
+With the Pico installed inside the amp, the USB cable is hard to use (and with the VSYS wire connected, it is even dangerous: see
+`proxy-ligacao.md`, "USB rule"). So the new program goes over Wi-Fi, with a password, and the Pico **goes back on its own to the
+previous version** if the new one does not work.
 
-Programas: `firmware/ota.py` (no Pico, recebe), `firmware/main.py` (no Pico, decide se volta) e `tools/enviar.py` (no
-computador, envia).
+The newer bridges' shared base now takes updates over Wi-Fi without a password. This SP103 firmware still has its own
+`firmware/ota.py`, which requires the password described here.
 
-## Preparar (uma vez só, pelo cabo)
+Programs: `firmware/ota.py` (on the Pico, receives), `firmware/main.py` (on the Pico, decides whether to roll back) and `tools/enviar.py` (on the
+computer, sends).
 
-1. No `firmware/secrets.py` do computador, a linha da senha (já está lá, com uma senha aleatória):
+## Preparing (once only, over the cable)
+
+1. In `firmware/secrets.py` on the computer, the password line (it is already there, with a random password):
 
    ```python
-   UPDATE_PASSWORD = "..."   # qualquer texto; o enviar.py lê daqui
+   UPDATE_PASSWORD = "..."   # any text; enviar.py reads it from here
    ```
 
-2. Com o Pico no USB (e o fio do VSYS solto, se estiver no amp), mande os arquivos:
+2. With the Pico on USB (and the VSYS wire disconnected, if it is in the amp), send the files:
 
    ```sh
    cd firmware
@@ -23,78 +26,80 @@ computador, envia).
    ../.venv/bin/mpremote reset
    ```
 
-Feito em 2026-10-24: o Pico do amp já está assim.
+Done on 2026-10-24: the amp's Pico is already set up like this.
 
-## Mandar uma versão nova
+## Sending a new version
 
 ```sh
 python3 tools/enviar.py
 ```
 
-Ele faz tudo sozinho:
+It does everything on its own:
 
-1. Pergunta ao Pico (`http://sp103.local/update`) quais arquivos ele tem.
-2. Confere a sintaxe dos arquivos de `firmware/` no computador e manda só os que mudaram.
-3. Marca para apagar os `.py` que estão no Pico mas não existem mais em `firmware/` (só quando envia a pasta inteira).
-4. O Pico guarda **a versão atual inteira** na pasta `old/`, troca e apaga os arquivos.
-5. O Pico reinicia e a versão nova fica **em teste**. Ela é confirmada quando, por 20 s seguidos, o programa roda, o
-   Wi-Fi está conectado e alguém (o próprio `enviar.py`) consegue falar com o Pico.
-6. O `enviar.py` mostra "Pronto: versão ... confirmada", em uns 30 s.
+1. Asks the Pico (`http://sp103.local/update`) which files it has.
+2. Checks the syntax of the `firmware/` files on the computer and sends only the ones that changed.
+3. Marks for deletion the `.py` files that are on the Pico but no longer exist in `firmware/` (only when it sends the whole folder).
+4. The Pico saves **the whole current version** in the `old/` folder, swaps and deletes the files.
+5. The Pico restarts and the new version is **on trial**. It is confirmed when, for 20 s in a row, the program runs, the
+   Wi-Fi is connected and someone (`enviar.py` itself) can talk to the Pico.
+6. `enviar.py` shows "Done: version ... confirmed", in about 30 s.
 
-Se a versão nova **falhar**, o Pico volta sozinho para a anterior:
+If the new version **fails**, the Pico goes back to the previous one on its own:
 
-| O que acontece com a versão nova | Quando o Pico volta |
+| What happens with the new version | When the Pico rolls back |
 |---|---|
-| Dá erro ao começar | uns 40 s (mostra o erro por 30 s e reinicia) |
-| Trava, não conecta no Wi-Fi ou não responde | 3 min (o relógio do `main.py` vence e ele reinicia) |
-| Falta luz durante o teste | no boot seguinte (por segurança, conta como falha) |
+| Errors on start | about 40 s (shows the error for 30 s and restarts) |
+| Hangs, does not connect to Wi-Fi or does not respond | 3 min (the `main.py` timer runs out and it restarts) |
+| Power cut during the trial | on the next boot (to be safe, it counts as a failure) |
 
-O `enviar.py` avisa: "A versão nova FALHOU e o Pico voltou para a anterior". Para ver o erro, ligue o Pico no cabo e
-rode a versão nova com o `mpremote` (com o amp fora da tomada e o fio vermelho solto):
+`enviar.py` warns: "The new version FAILED and the Pico went back to the previous one". To see the error, connect the Pico by cable and
+run the new version with `mpremote` (with the amp unplugged from the wall and the red wire disconnected):
 
 ```sh
 cd firmware
 ../.venv/bin/mpremote mount . run proxy.py
 ```
 
-O `mount` faz o Pico usar os arquivos do computador. Se o `mpremote` for interrompido no meio, o Pico fica esperando o
-computador e não volta ao Wi-Fi: desligue e ligue o USB.
+`mount` makes the Pico use the computer's files. If `mpremote` is interrupted midway, the Pico keeps waiting for the
+computer and does not go back to Wi-Fi: unplug and replug the USB.
 
-## Outros comandos
+## Other commands
 
 ```sh
-python3 tools/enviar.py --estado           # versão atual, estado e versão guardada
-python3 tools/enviar.py --voltar           # volta para a versão guardada (a de antes da última atualização)
-python3 tools/enviar.py proxy.py           # manda só esse arquivo (se mudou; não apaga nada)
-python3 tools/enviar.py --host 192.168.178.108    # se o sp103.local não funcionar
+python3 tools/enviar.py --status           # current version, state and saved version
+python3 tools/enviar.py --rollback         # go back to the saved version (the one before the last update)
+python3 tools/enviar.py proxy.py           # send only this file (if it changed; deletes nothing)
+python3 tools/enviar.py --host 192.168.178.108    # if sp103.local does not work
 ```
 
-A "versão" é um código de 8 letras que muda sempre que algum arquivo muda.
+The old Portuguese flags (`--estado`, `--voltar`, `--forcar`) still work.
 
-## O que nunca vai pelo Wi-Fi
+The "version" is an 8-letter code that changes whenever any file changes.
 
-- **`main.py`**: é o "porteiro" que faz a volta. Se ele estragasse, nada mais voltaria. Mudou o `main.py`? Só pelo cabo.
-- **`secrets.py`**: tem a senha da atualização. Para trocá-la, só pelo cabo. (A rede Wi-Fi não fica mais aqui: fica no
-  `wifi.json`, trocada pela rede de configuração do Pico, `wifi.md`.)
-- **`wifi.json`**: a rede Wi-Fi salva. A atualização nunca mexe nele.
-- **`names.json`**: os textos personalizados ficam no Pico e são editados pela app.
+## What never goes over Wi-Fi
 
-## Segurança
+- **`main.py`**: it is the "gatekeeper" that does the rollback. If it broke, nothing would roll back any more. Changed `main.py`? Cable only.
+- **`secrets.py`**: holds the update password. To change it, cable only. (The Wi-Fi network no longer lives here: it lives in
+  `wifi.json`, changed through the Pico's setup network, `wifi.md`.)
+- **`wifi.json`**: the saved Wi-Fi network. The update never touches it.
+- **`names.json`**: the custom texts stay on the Pico and are edited by the app.
 
-- A senha vai no cabeçalho `X-Password`, sem criptografia (HTTP simples). Na rede de casa isso basta. Use uma senha que
-  não sirva para mais nada.
-- Uma senha errada demora 1 s para ser recusada (para atrasar quem tenta adivinhar).
-- Sem a linha `UPDATE_PASSWORD` no `secrets.py` do Pico, a atualização fica desligada.
+## Security
 
-## Testado
+- The password goes in the `X-Password` header, unencrypted (plain HTTP). On the home network that is enough. Use a password that
+  is not used for anything else.
+- A wrong password takes 1 s to be refused (to slow down anyone guessing).
+- Without the `UPDATE_PASSWORD` line in the Pico's `secrets.py`, updates are off.
 
-Na bancada (2026-10-24):
+## Tested
 
-- Três atualizações reais (`web.py`, `buslog.py`, `ota.py`): confirmadas em ~30 s.
-- Versão que dá erro ao começar: voltou sozinha em 38 s.
-- Versão que trava: voltou sozinha em 189 s.
-- `--voltar` e reenvio: ok. Senha errada, arquivo com erro de sintaxe e `main.py`: recusados, com mensagem.
+On the bench (2026-10-24):
 
-No amp (2026-10-29): a primeira versão do proxy deu erro ao começar e voltou sozinha; a correção foi confirmada. O
-apagar foi usado para tirar do Pico os arquivos da escrita sem corte. O `ota.py` antigo não sabia apagar, então foram
-dois envios: o `enviar.py` avisa quando isso acontece.
+- Three real updates (`web.py`, `buslog.py`, `ota.py`): confirmed in ~30 s.
+- Version that errors on start: rolled back on its own in 38 s.
+- Version that hangs: rolled back on its own in 189 s.
+- `--voltar` (now `--rollback`) and resend: ok. Wrong password, file with a syntax error and `main.py`: refused, with a message.
+
+On the amp (2026-10-29): the first proxy version errored on start and rolled back on its own; the fix was confirmed.
+Deletion was used to remove the files of the unclipped writing from the Pico. The old `ota.py` could not delete, so it took
+two sends: `enviar.py` warns when that happens.

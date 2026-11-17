@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Testa no computador o registro do barramento (firmware/buslog.py) e o tools/ler_bus.py.
+"""Tests the bus log (firmware/buslog.py) and tools/ler_bus.py on the computer.
 
-Passa as palavras das capturas .lac pelo BusLog, como o escuta.py faz no Pico (em lotes
-de 1 ms), gera o CSV, lê de volta com o ler_bus.py e confere que as telas saem iguais
-às do sniffer (tools/test_sniffer.py). Também confere a volta do buffer e o horário.
+Feeds the words from the .lac captures through BusLog, as escuta.py does on the Pico (in 1 ms
+batches), builds the CSV, reads it back with ler_bus.py and checks that the screens come out the
+same as the sniffer's (tools/test_sniffer.py). Also checks the buffer wraparound and the timestamps.
 
     python3 tools/test_buslog.py
 """
@@ -28,18 +28,18 @@ bad = 0
 def check(ok, what):
     global bad
     bad += not ok
-    print("%s %s" % ("ok   " if ok else "FALHA", what))
+    print("%s %s" % ("ok   " if ok else "FAIL ", what))
 
 
 def run(words, size=1 << 20, clock=None):
-    """Põe as palavras no BusLog em lotes de 1 ms e devolve (log, texto do CSV)."""
+    """Puts the words into BusLog in 1 ms batches and returns (log, CSV text)."""
     log = BusLog(Bus(), size)
     log.clear(0)
     if clock:
         log.set_clock(*clock)
     batch, batch_ms = 0, None
     for t, word in words:
-        ms = int(t // 1000) + 10_000            # o relógio interno não começa no zero
+        ms = int(t // 1000) + 10_000            # the internal clock doesn't start at zero
         if ms != batch_ms and batch_ms is not None:
             log.poll(batch_ms, batch)
             batch = 0
@@ -71,20 +71,20 @@ def main():
         st = log.stats(log.ticks[(log.n - 1) % log.size])
         check([s[1:] for s in got] == want and len(text.splitlines()) == len(words) + 1
               and st["writes"] == bus.writes and st["reads"] == bus.reads,
-              "%-22s %3d telas, %5d palavras, CSV ida e volta" % (name, len(got), len(words)))
+              "%-22s %3d screens, %5d words, CSV round trip" % (name, len(got), len(words)))
 
-    # Volta do buffer: só as últimas palavras, da mais antiga para a mais nova.
+    # Buffer wraparound: only the last words, oldest to newest.
     words = [(i * 1000.0, (i % 256) << 3) for i in range(1000)]
     log, text = run(words, size=64)
     lines = text.splitlines()[1:]
     check(len(lines) == 64 and lines[0].split(",")[4] == "%02X" % (936 % 256)
-          and lines[-1].split(",")[4] == "%02X" % (999 % 256), "volta do buffer (64 de 1000)")
+          and lines[-1].split(",")[4] == "%02X" % (999 % 256), "buffer wraparound (64 of 1000)")
     st = log.stats(log.ticks[63])
     check(st["log_words"] == 64 and st["words"] == 1000 and st["log_span_s"] == 0,
-          "estatísticas do buffer")
+          "buffer stats")
 
-    # Palavras novas durante o download sobrescrevem as que ainda não saíram: são puladas,
-    # e o arquivo continua em ordem, até a última palavra do início do download.
+    # New words during the download overwrite the ones not yet sent: those are skipped,
+    # and the file stays in order, up to the last word from when the download started.
     log, _ = run(words[:150], size=100)
     parts = log.csv(chunk=20)
     text = next(parts) + next(parts)
@@ -93,17 +93,17 @@ def main():
     text += "".join(parts)
     ms = [int(line.split(",")[1]) for line in text.splitlines()[1:]]
     check(ms == sorted(ms) and ms[19] == 10_069 and ms[20] == 10_130 and ms[-1] == 10_149,
-          "buffer sobrescrito durante o download")
+          "buffer overwritten during the download")
 
-    # Horário: relógio acertado em 2026-10-24 19:00:00 UTC quando o ticks_ms valia 10 000;
-    # o CSV pede o fuso +120 min, então a primeira palavra (ms 10 000) sai 21:00:00.000.
+    # Timestamps: clock set to 2026-10-24 19:00:00 UTC when ticks_ms was 10 000;
+    # the CSV asks for the +120 min time zone, so the first word (ms 10 000) comes out 21:00:00.000.
     log, text = run(words[:3], clock=(1792868400, 10_000))
     first = text.splitlines()[1].split(",")
-    check(first[0] == "2026-10-24 21:00:00.000" and first[1] == "10000", "horário no CSV: %s" % first[0])
+    check(first[0] == "2026-10-24 21:00:00.000" and first[1] == "10000", "timestamp in the CSV: %s" % first[0])
     log, text = run(words[:3])
-    check(text.splitlines()[1].startswith(",10000,"), "sem relógio: coluna de horário vazia")
+    check(text.splitlines()[1].startswith(",10000,"), "no clock: empty time column")
 
-    print("\n%s" % ("tudo certo" if not bad else "%d falha(s)" % bad))
+    print("\n%s" % ("all good" if not bad else "%d failure(s)" % bad))
     sys.exit(1 if bad else 0)
 
 

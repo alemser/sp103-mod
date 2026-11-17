@@ -1,43 +1,44 @@
-"""Leitor de telas do SP103: transforma as 2 linhas do LCD no estado do amplificador.
+"""SP103 screen reader: turns the 2 LCD lines into the amplifier's state.
 
-Roda igual no MicroPython (Pico) e no Python do computador (testes).
+Runs the same on MicroPython (Pico) and on the computer's Python (tests).
 
-Uso:
+Use:
     st = AmpState()
     if st.update(linha1, linha2, agora_ms):
-        print(st.to_dict())      # algo mudou
+        print(st.to_dict())      # something changed
 
-As linhas são as 16 posições de cada linha do LCD, com os códigos originais
-(chr(0) = a caixa das barras, ver docs/descobertas-protocolo.md).
+The lines are the 16 positions of each LCD line, with the original codes
+(chr(0) = the bar box, see docs/descobertas-protocolo.md).
 
-IMPORTANTE: só chame update() com a tela COMPLETA. O controlador redesenha
-caractere por caractere (cerca de 8,5 ms por tela), e no meio do caminho a
-linha pode misturar o valor velho com o novo ("Volume -27.75" no lugar de
-"-27.50"). O sniffer deve esperar alguns milissegundos sem escritas antes de chamar.
+IMPORTANT: only call update() with the COMPLETE screen. The controller redraws
+character by character (about 8.5 ms per screen), and halfway through a line
+can mix the old value with the new one ("Volume -27.75" instead of "-27.50").
+The sniffer must wait a few milliseconds without writes before calling.
 
-Standby: ao ir para o standby, o controlador escreve espaços nas 32 posições (visto em
-2026-10-29), e o "power" vira "standby"; ao sair dele, desenha direto a tela normal. Ao
-receber energia da tomada, a tela também fica em branco, mas com um "Clear display" antes: por isso o update() recebe cleared=True nesse caso, e a tela em branco
-não conta como standby. power = None: ainda não se sabe (o Pico acabou de ligar).
+Standby: on going to standby, the controller writes spaces to all 32 positions (seen on
+2026-10-29), and "power" becomes "standby"; on leaving it, it draws the normal screen
+directly. When mains power arrives the screen is also blank, but preceded by a "Clear
+display": that is why update() gets cleared=True in that case, and the blank screen does
+not count as standby. power = None: not known yet (the Pico has just started).
 """
 
-BOX = "\x00"                    # caractere personalizado 0: caixa das barras
+BOX = "\x00"                    # custom character 0: the bar box
 INPUTS = ("PHONO", "TUNER", "TAPE/AUX", "CD", "DVD", "DAB")
-STREAMING_INPUT = "DAB"         # escolhido pelo dono: a entrada ligada ao streaming (AirPlay, Bluetooth)
-# Identificadores estáveis, em minúsculas, para clientes da API.
+STREAMING_INPUT = "DAB"         # chosen by the owner: the input wired to streaming (AirPlay, Bluetooth)
+# Stable lowercase identifiers for API clients.
 INPUT_IDS = {"PHONO": "phono", "TUNER": "tuner", "TAPE/AUX": "tape_aux",
              "CD": "cd", "DVD": "dvd", "DAB": "dab"}
-VOLUME_MIN = -78.75             # PT2314: 0 a -78,75 dB, passos de 1,25 dB
+VOLUME_MIN = -78.75             # PT2314: 0 to -78.75 dB, 1.25 dB steps
 STEP = 1.25
-SPEAKERS_AFTER_STANDBY = True   # medido em 2026-11-06: speakers sempre volta a ON ao sair do standby
+SPEAKERS_AFTER_STANDBY = True   # measured on 2026-11-06: speakers always goes back to ON on leaving standby
 
-# Os campos do estado, na ordem em que aparecem no JSON.
+# The state fields, in the order they appear in the JSON.
 FIELDS = ("power", "volume_db", "input", "input_id", "input_name", "bass_db", "treble_db", "balance",
           "loudness", "speakers", "screen", "firmware", "lcd", "updated_at")
 
 
 def _db(text):
-    """'-28.75' -> -28.75, ou None se não for um número válido."""
+    """'-28.75' -> -28.75, or None if it is not a valid number."""
     text = text.strip()
     try:
         return float(text)
@@ -46,7 +47,7 @@ def _db(text):
 
 
 def _is_step(v, lo, hi):
-    """Confere se v está entre lo e hi e é múltiplo de 1,25 dB."""
+    """Checks that v is between lo and hi and is a multiple of 1.25 dB."""
     if v is None or v < lo or v > hi:
         return False
     k = v / STEP
@@ -54,7 +55,7 @@ def _is_step(v, lo, hi):
 
 
 def _ends_db(line):
-    """Tira o ' dB' do fim da linha, ou devolve None se não terminar assim."""
+    """Strips ' dB' from the end of the line, or returns None if it does not end that way."""
     line = line.rstrip()
     if not line.endswith(" dB"):
         return None
@@ -62,9 +63,9 @@ def _ends_db(line):
 
 
 def _bar(line):
-    """Barra bipolar da linha 2: '<>' nas colunas 7 e 8, caixas de um lado.
+    """Bipolar bar on line 2: '<>' at columns 7 and 8, boxes on one side.
 
-    Devolve (caixas_esquerda, caixas_direita), ou None se a linha não for uma barra.
+    Returns (left_boxes, right_boxes), or None if the line is not a bar.
     """
     if line[7:9] != "<>":
         return None
@@ -73,7 +74,7 @@ def _bar(line):
         for c in part:
             if c != BOX and c != " ":
                 return None
-    # As caixas ficam coladas no "<>": à esquerda terminam na coluna 6, à direita começam na 9.
+    # The boxes sit right against the "<>": on the left they end at column 6, on the right they start at 9.
     nl = len(left) - len(left.rstrip(BOX))
     nr = len(right) - len(right.lstrip(BOX))
     if left.count(BOX) != nl or right.count(BOX) != nr:
@@ -82,9 +83,9 @@ def _bar(line):
 
 
 def _choice(line):
-    """Linha 2 de Loudness/Speakers: 'OFF' e 'ON', a escolhida entre '< >'.
+    """Line 2 of Loudness/Speakers: 'OFF' and 'ON', the chosen one between '< >'.
 
-    Devolve True (ON), False (OFF) ou None.
+    Returns True (ON), False (OFF) or None.
     """
     a, b = line.find("<"), line.find(">")
     if a < 0 or b < a or line.count("<") != 1 or line.count(">") != 1:
@@ -99,14 +100,14 @@ def _choice(line):
 
 
 def parse(line1, line2):
-    """Reconhece uma tela completa.
+    """Recognises a complete screen.
 
-    Devolve (nome_da_tela, {campo: valor}) com só os campos que a tela mostra,
-    ou ("unknown", {}) se a tela não for reconhecida.
+    Returns (screen_name, {field: value}) with only the fields the screen shows,
+    or ("unknown", {}) if the screen is not recognised.
     """
     l1, l2 = line1, line2
 
-    # Tela normal ou de volume: "Volume -28.75 dB"
+    # Normal or volume screen: "Volume -28.75 dB"
     if l1.startswith("Volume "):
         v = _ends_db(l1[7:])
         v = _db(v) if v is not None else None
@@ -115,13 +116,13 @@ def parse(line1, line2):
         name = l2.rstrip()
         if name in INPUTS:
             return "normal", {"volume_db": v, "input": name}
-        # Barra de volume: caixas a partir da coluna 0, depois só espaços.
+        # Volume bar: boxes from column 0, then only spaces.
         boxes = l2.rstrip(" ")
         if boxes == BOX * len(boxes):
             return "volume", {"volume_db": v}
         return "unknown", {}
 
-    # Bass e Treble: "Bass   2 dB", "Bass -10 dB", "Treble   0 dB" (sem '+')
+    # Bass and Treble: "Bass   2 dB", "Bass -10 dB", "Treble   0 dB" (no '+')
     for word, field in (("Bass", "bass_db"), ("Treble", "treble_db")):
         if l1.startswith(word + " "):
             v = _ends_db(l1[len(word):])
@@ -130,13 +131,13 @@ def parse(line1, line2):
             if v is None or v != int(v) or abs(v) > 14 or bar is None:
                 return "unknown", {}
             nl, nr = bar
-            # Cada caixa vale 2 dB: a barra precisa concordar com o número.
+            # Each box is worth 2 dB: the bar must agree with the number.
             if (v < 0 and (nr or nl != int(-v) // 2)) or (v > 0 and (nl or nr != int(v) // 2)) \
                     or (v == 0 and (nl or nr)):
                 return "unknown", {}
             return word.lower(), {field: int(v)}
 
-    # Balance: "Balance -5.00 dB", "Balance-10.00 dB"; centrado: "Balance <level>"
+    # Balance: "Balance -5.00 dB", "Balance-10.00 dB"; centred: "Balance <level>"
     if l1.startswith("Balance"):
         bar = _bar(l2)
         if bar is None:
@@ -150,11 +151,11 @@ def parse(line1, line2):
         v = _db(v) if v is not None else None
         if not _is_step(v, VOLUME_MIN, -STEP):
             return "unknown", {}
-        # Uma caixa a cada 5 dB, do lado da barra. O número não diz o lado.
+        # One box every 5 dB, on the bar's side. The number does not tell the side.
         if (nl and nr) or (nl + nr) != int(-v // 5):
             return "unknown", {}
         if nl == 0 and nr == 0:
-            side = None             # menos de 5 dB: a barra ainda não aparece
+            side = None             # under 5 dB: the bar does not show yet
         else:
             side = "L" if nl else "R"
         return "balance", {"balance": {"side": side, "db": v}}
@@ -181,7 +182,7 @@ def parse(line1, line2):
 
 
 def lcd_text(line):
-    """Linha do LCD em texto legível: a caixa vira '■', outros códigos viram '·'."""
+    """An LCD line as readable text: the box becomes '■', other codes become '·'."""
     out = ""
     for c in line:
         if c == BOX:
@@ -194,15 +195,15 @@ def lcd_text(line):
 
 
 class AmpState:
-    """Estado do amplificador, montado a partir das telas que o controlador desenha."""
+    """The amplifier's state, built from the screens the controller draws."""
 
     def __init__(self, names=None):
-        self.names = names or {}    # tabela de nomes (names.py): {"TUNER": "Rega Planar 2"}
-        self.power = None           # "on" (tela reconhecida), "standby" (tela em branco) ou None
+        self.names = names or {}    # name table (names.py): {"TUNER": "Rega Planar 2"}
+        self.power = None           # "on" (recognised screen), "standby" (blank screen) or None
         self.volume_db = None
-        self.input = None           # nome original no amp: "TUNER"
-        self.input_id = None        # identificador estável da entrada: "tuner"
-        self.input_name = None      # nome da tabela, ou o original: "Rega Planar 2"
+        self.input = None           # original name on the amp: "TUNER"
+        self.input_id = None        # stable input identifier: "tuner"
+        self.input_name = None      # name from the table, or the original: "Rega Planar 2"
         self.bass_db = None
         self.treble_db = None
         self.balance = None         # {"side": "L"/"R"/None, "db": -5.0}
@@ -211,13 +212,13 @@ class AmpState:
         self.screen = None
         self.firmware = None
         self.lcd = ["", ""]
-        self.updated_at = None      # milissegundos (relógio de quem chama)
-        self.version = 0            # aumenta a cada mudança (útil para /events)
+        self.updated_at = None      # milliseconds (the caller's clock)
+        self.version = 0            # goes up on every change (useful for /events)
 
     def update(self, line1, line2, now_ms=None, cleared=False):
-        """Lê uma tela completa. Devolve True se algum campo mudou.
+        """Reads a complete screen. Returns True if any field changed.
 
-        cleared: houve um "Clear display" desde a tela anterior (o amp está ligando)."""
+        cleared: there was a "Clear display" since the previous screen (the amp is powering up)."""
         screen, values = parse(line1, line2)
         if not cleared and not (line1 + line2).strip(" "):
             screen = "standby"
@@ -247,7 +248,7 @@ class AmpState:
         return changed
 
     def set_names(self, names, now_ms=None):
-        """Troca a tabela de nomes. Devolve True se o input_name mudou."""
+        """Replaces the name table. Returns True if input_name changed."""
         self.names = names
         if self._names_changed():
             self.version += 1

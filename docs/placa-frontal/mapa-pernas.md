@@ -1,244 +1,244 @@
-# Mapa das pernas do T9311DP
+# T9311DP leg map
 
-Medições com multímetro. Fotos: [`placa-frontal-baixo-mapa.jpg`](placa-frontal-baixo-mapa.jpg) (lado de baixo, anotada),
-[`placa-frontal-mapa.jpg`](placa-frontal-mapa.jpg) (lado de cima, anotada), [`foto-chip-encoder-J2.jpg`](foto-chip-encoder-J2.jpg)
-e [`foto-receptor-IR.jpg`](foto-receptor-IR.jpg).
+Multimeter measurements. Photos: [`placa-frontal-baixo-mapa.jpg`](placa-frontal-baixo-mapa.jpg) (underside, annotated),
+[`placa-frontal-mapa.jpg`](placa-frontal-mapa.jpg) (top side, annotated), [`foto-chip-encoder-J2.jpg`](foto-chip-encoder-J2.jpg)
+and [`foto-receptor-IR.jpg`](foto-receptor-IR.jpg).
 
-**Legenda antiga na foto de baixo:** ela diz "A, comum, B" no encoder, mas o comum é o pino de baixo (E3), como mostra a
-tabela do encoder abaixo.
+**Old label on the underside photo:** it says "A, common, B" on the encoder, but the common is the bottom pin (E3), as
+the encoder table below shows.
 
-## Regras de segurança
+## Safety rules
 
-- Meça com o amp fora da tomada há 5 minutos, com menos de 0,5 V entre os pinos 1 e 2 do display.
-- Só na placa da frente: nunca na placa de rede, no transformador ou na placa de potência.
-- Nunca encoste no cristal de 12 MHz nem nas pernas 18 e 19 com o amp ligado.
-- Os sinais da placa são de 5 V; o Pico é de 3,3 V. Veja `../proxy-ligacao.md`.
+- Measure with the amp unplugged for 5 minutes, with less than 0.5 V between display pins 1 and 2.
+- Front board only: never the mains board, the transformer or the power board.
+- Never touch the 12 MHz crystal or legs 18 and 19 with the amp on.
+- The board's signals are 5 V; the Pico is 3.3 V. See `../proxy-ligacao.md`.
 
-## Contagem das pernas (2026-11-05)
+## Leg numbering (2026-11-05)
 
-Confirmada. Visto por cima, com o LCD à esquerda:
+Confirmed. Seen from above, with the LCD on the left:
 
-| Perna | Posição | Medição | Resultado |
+| Leg | Position | Measurement | Result |
 |---|---|---|---|
-| 20 | última à direita, fileira de baixo | × pino 1 do display (GND) | apita |
-| 40 | primeira à esquerda, fileira de cima | × pino 2 do display (+5 V) | apita |
+| 20 | last on the right, bottom row | × display pin 1 (GND) | beeps |
+| 40 | first on the left, top row | × display pin 2 (+5 V) | beeps |
 
-## Receptor IR (2026-11-05)
+## IR receiver (2026-11-05)
 
-Visto por cima, com o LCD à esquerda e os botões perto de quem olha:
+Seen from above, with the LCD on the left and the buttons towards the viewer:
 
-| Ponto | Função | Medição | Resultado |
+| Point | Function | Measurement | Result |
 |---|---|---|---|
-| Perna da esquerda | Sinal | × perna 12 do chip | apita (ligação direta) |
-| Perna do meio | GND | × GND | apita |
-| Perna da direita | Alimentação | × C903 | apita |
-| Perna da direita | Alimentação | × perna 40 (+5 V) | cerca de 10 Ω |
-| Carcaça | GND | × pino 1 do display | apita |
-| C902, terminal de cima | GND | × perna do meio do IR | apita |
-| C902, terminal de cima | GND | × perna da esquerda do IR | não apita |
-| C902, terminal de baixo | Sinal | × perna do meio do IR | não apita |
-| C902, terminal de baixo | Sinal | × perna da esquerda do IR | apita |
+| Left leg | Signal | × chip leg 12 | beeps (direct connection) |
+| Middle leg | GND | × GND | beeps |
+| Right leg | Supply | × C903 | beeps |
+| Right leg | Supply | × leg 40 (+5 V) | about 10 Ω |
+| Case | GND | × display pin 1 | beeps |
+| C902, top terminal | GND | × IR middle leg | beeps |
+| C902, top terminal | GND | × IR left leg | no beep |
+| C902, bottom terminal | Signal | × IR middle leg | no beep |
+| C902, bottom terminal | Signal | × IR left leg | beeps |
 
-Os 10 Ω vêm de 10,5 Ω medidos na escala 200, menos 0,6 Ω dos cabos do multímetro.
+The 10 Ω comes from 10.5 Ω measured on the 200 range, minus 0.6 Ω for the multimeter leads.
 
-**Conclusões:**
+**Conclusions:**
 
-- A saída do receptor IR vai direto à perna 12 do chip. Nenhuma outra apitou entre as pernas 1–8, 13–17 e 21–27.
-- O C902 (33 pF) fica entre o sinal e o GND.
-- Se o chip for um 8051, a perna 12 é P3.2/INT0, a entrada de interrupção. A família do chip ainda não foi confirmada.
+- The IR receiver output goes straight to chip leg 12. No other leg beeped among legs 1–8, 13–17 and 21–27.
+- C902 (33 pF) sits between signal and GND.
+- If the chip is an 8051, leg 12 is P3.2/INT0, the interrupt input. The chip family has not been confirmed yet.
 
-**Força da linha do IR (2026-11-06):** em Ω, escala 200k, amp fora da tomada, entre a perna da esquerda (sinal) e a da direita (alimentação): 39,0 kΩ com a ponta vermelha no sinal e 41,1 kΩ com as pontas invertidas. Quase igual nos dois sentidos, então é um resistor de cerca de 40 kΩ segurando a linha em 1. Puxar a linha para o GND custa cerca de 0,1 mA.
+**IR line strength (2026-11-06):** in Ω, 200k range, amp unplugged, between the left leg (signal) and the right leg (supply): 39.0 kΩ with the red probe on the signal and 41.1 kΩ with the probes swapped. Almost the same both ways, so it is a resistor of about 40 kΩ holding the line at 1. Pulling the line to GND costs about 0.1 mA.
 
-**Em aberto:**
+**Open:**
 
-- Confirmar se o resistor de cerca de 10 Ω é mesmo o R903.
+- Confirm whether the resistor of about 10 Ω is really R903.
 
-## Encoder do volume (2026-11-05)
+## Volume encoder (2026-11-05)
 
-Pinos vistos por baixo, com a ponta do LCD para cima: E1 é o de cima, E2 o do meio e E3 o de baixo.
+Pins seen from below, with the LCD end facing up: E1 is the top one, E2 the middle one and E3 the bottom one.
 
-| Ponto | Função | Liga em | Resistor para o +5 V (perna 40) |
+| Point | Function | Connects to | Resistor to +5 V (leg 40) |
 |---|---|---|---|
-| E1 | A ou B | **Perna 22 do chip**, direto | 4,6 kΩ |
-| E2 | A ou B | **Perna 21 do chip**, direto | 4,6 kΩ |
-| E3 | Comum | GND (apita em todas as posições) | 4,76 kΩ (é a leitura entre +5 V e GND) |
-| 2 patilhas de fixação | Só fixação | Não apitam com o GND | não medido |
+| E1 | A or B | **Chip leg 22**, direct | 4.6 kΩ |
+| E2 | A or B | **Chip leg 21**, direct | 4.6 kΩ |
+| E3 | Common | GND (beeps in every position) | 4.76 kΩ (this is the reading between +5 V and GND) |
+| 2 mounting tabs | Mounting only | Do not beep with GND | not measured |
 
-Conferência em continuidade: E1 × 22 e E2 × 21 apitam; E1 × 21 e E2 × 22 não apitam. As mesmas ligações em Ω foram anotadas como "nada" e devem ser 0.00, porque apitam.
+Continuity check: E1 × 22 and E2 × 21 beep; E1 × 21 and E2 × 22 do not beep. The same connections in Ω were noted as "nothing" and should be 0.00, since they beep.
 
-**Conclusões:**
+**Conclusions:**
 
-- O C908 fica entre E2 e o GND.
-- E1 e E2 têm resistor de cerca de 4,6 kΩ para o +5 V, e o contato do encoder os puxa para o GND.
-- As leituras de 9,2 kΩ são dois desses resistores em série, passando pelo +5 V. Não são ligações diretas.
-- Se o chip for um 8051, as pernas 21 e 22 são P2.0 e P2.1. A família do chip ainda não foi confirmada.
-- Na primeira varredura, 21 e 22 não apitaram, e uma leitura do E2 falhou por falta de contato. Encostar com firmeza faz diferença.
+- C908 sits between E2 and GND.
+- E1 and E2 have a resistor of about 4.6 kΩ to +5 V, and the encoder contact pulls them to GND.
+- The 9.2 kΩ readings are two of these resistors in series, going through +5 V. They are not direct connections.
+- If the chip is an 8051, legs 21 and 22 are P2.0 and P2.1. The chip family has not been confirmed yet.
+- In the first sweep, 21 and 22 did not beep, and one E2 reading failed for lack of contact. Pressing firmly makes a difference.
 
-**Em aberto:**
+**Open:**
 
-- Qual dos dois é A e qual é B: isso depende do sentido de giro.
-- Onde liga o C907: não apitou com E1, E2, E3 nem GND.
-- Por que E1 dá 6,9 kΩ com as pernas 1, 2 e 3, e 9,2 kΩ com as pernas 4–8, 13–17, 23–27. Voltar a isso ao medir os botões.
+- Which of the two is A and which is B: this depends on the direction of rotation.
+- Where C907 connects: it did not beep with E1, E2, E3 or GND.
+- Why E1 reads 6.9 kΩ to legs 1, 2 and 3, and 9.2 kΩ to legs 4–8, 13–17, 23–27. Come back to this when measuring the buttons.
 
-## Botões (2026-11-05)
+## Buttons (2026-11-05)
 
-Perninhas vistas por cima: P1 e P3 à esquerda, P2 e P4 à direita. P1 apita com P3, e P2 apita com P4. Sem apertar, um lado não apita com o outro.
+Leads seen from above: P1 and P3 on the left, P2 and P4 on the right. P1 beeps with P3, and P2 beeps with P4. When not pressed, one side does not beep with the other.
 
-| Botão | P1 (esquerda) | P2 (direita) |
+| Button | P1 (left) | P2 (right) |
 |---|---|---|
-| K1 | Perna 13 | Perna 8 |
-| K2 | Perna 14 | Perna 8 |
-| K3 | Perna 13 | Perna 7 |
-| K4 | Perna 14 | Perna 7 |
-| K5 | Perna 13 | Perna 5 |
-| K6 | Perna 14 | Perna 5 |
-| K7 | Perna 6 | Perna 13 |
+| K1 | Leg 13 | Leg 8 |
+| K2 | Leg 14 | Leg 8 |
+| K3 | Leg 13 | Leg 7 |
+| K4 | Leg 14 | Leg 7 |
+| K5 | Leg 13 | Leg 5 |
+| K6 | Leg 14 | Leg 5 |
+| K7 | Leg 6 | Leg 13 |
 
-Nos botões K2 a K7, a medição parou no primeiro apito. No K1, a lista foi até o fim. O K7 tem os lados invertidos em relação aos outros.
+On buttons K2 to K7, measuring stopped at the first beep. On K1, the list was gone through to the end. K7 has its sides swapped relative to the others.
 
-A matriz, com as pernas que cada botão liga:
+The matrix, with the legs each button connects:
 
-| | Perna 8 | Perna 7 | Perna 6 | Perna 5 |
+| | Leg 8 | Leg 7 | Leg 6 | Leg 5 |
 |---|---|---|---|---|
-| **Perna 13** | K1 | K3 | K7 | K5 |
-| **Perna 14** | K2 | K4 | livre | K6 |
+| **Leg 13** | K1 | K3 | K7 | K5 |
+| **Leg 14** | K2 | K4 | free | K6 |
 
-**Conclusões:**
+**Conclusions:**
 
-- Os botões formam uma matriz de 2 × 4. Nenhuma perninha do K1 vai ao GND.
-- Com o multímetro não dá para saber quais pernas o chip aciona e quais ele lê. Isso sai da captura.
+- The buttons form a 2 × 4 matrix. No K1 lead goes to GND.
+- With the multimeter it is not possible to tell which legs the chip drives and which it reads. That will come from the capture.
 
-O botão de liga/desliga é uma chave que vai direto à placa de alimentação (220 V). Ele não faz parte da matriz e **não deve ser medido**.
+The power button is a switch that goes straight to the power supply board (220 V). It is not part of the matrix and **must not be measured**.
 
-**Em aberto:**
+**Open:**
 
-- O cruzamento 14 × 6 está livre: nenhum dos botões K1–K7 usa esse cruzamento.
+- The 14 × 6 crossing is free: none of the buttons K1–K7 uses it.
 
 ## EEPROM IC801 (2026-11-05)
 
-| Pino do IC801 | Função (24C01) | Liga em |
+| IC801 pin | Function (24C01) | Connects to |
 |---|---|---|
-| 1, 2, 3 | Endereço | GND |
+| 1, 2, 3 | Address | GND |
 | 4 | GND | GND |
-| 5 | SDA | **Perna 25 do chip** |
-| 6 | SCL | **Perna 24 do chip** |
-| 7 | Proteção de escrita | GND |
+| 5 | SDA | **Chip leg 25** |
+| 6 | SCL | **Chip leg 24** |
+| 7 | Write protect | GND |
 
-Com os pinos de endereço no GND, o endereço esperado é 0x50. Com o pino 7 no GND, a gravação fica liberada. A captura vai confirmar os dois.
+With the address pins on GND, the expected address is 0x50. With pin 7 on GND, writing is enabled. The capture will confirm both.
 
-## Cabo para a placa de entradas (2026-11-05, em andamento)
+## Cable to the input board (2026-11-05, in progress)
 
-Na placa, são 4 fios entre a placa do display e a placa das entradas RCA, e não 9 como diz o brief. Falta confirmar em qual conector eles chegam. Suspeita: são os 4 sinais do CON51 (SDA0, SDA1, SCL e GND).
+On the board, there are 4 wires between the display board and the RCA input board, not 9 as the brief says. Still to confirm which connector they arrive at. Suspicion: they are the 4 signals of CON51 (SDA0, SDA1, SCL and GND).
 
-Olhando a placa de frente, os fios são F1 a F4, da esquerda para a direita.
+Looking at the board from the front, the wires are F1 to F4, left to right.
 
-| Fio | Função | Liga em |
+| Wire | Function | Connects to |
 |---|---|---|
-| F1 | GND | GND (apita) |
-| F2 | Sinal, provável I2C | Perna 1 do chip |
-| F3 | Sinal, provável I2C | Perna 2 do chip |
-| F4 | Sinal, provável I2C | Perna 3 do chip |
+| F1 | GND | GND (beeps) |
+| F2 | Signal, probably I2C | Chip leg 1 |
+| F3 | Signal, probably I2C | Chip leg 2 |
+| F4 | Signal, probably I2C | Chip leg 3 |
 
-**Conclusões (a confirmar):**
+**Conclusions (to be confirmed):**
 
-- O CON51 tem SCL e duas linhas SDA. A ordem GND, CL, DA1, DA0 sugere F2 = SCL, F3 = SDA1 e F4 = SDA0, mas isso só sai da captura.
-- As pernas 1, 2 e 3 não são as da EEPROM (24 e 25). Os PT2314 parecem estar em outro barramento, então a captura deles deve ser em F2–F4, não no IC801.
-- F2, F3 e F4 dão 4,6 kΩ até a perna 40 (escala 20k), igual a E1 e E2. A hipótese de resistores extras (2,3 kΩ) foi descartada.
-- Os 6,9 kΩ de E1 com as pernas 1, 2 e 3 continuam sem explicação. Esperado seria 9,2 kΩ.
+- CON51 has SCL and two SDA lines. The order GND, CL, DA1, DA0 suggests F2 = SCL, F3 = SDA1 and F4 = SDA0, but only the capture will tell.
+- Legs 1, 2 and 3 are not the EEPROM ones (24 and 25). The PT2314s seem to be on another bus, so their capture should be on F2–F4, not on IC801.
+- F2, F3 and F4 read 4.6 kΩ to leg 40 (20k range), the same as E1 and E2. The hypothesis of extra resistors (2.3 kΩ) was ruled out.
+- E1's 6.9 kΩ to legs 1, 2 and 3 remains unexplained. 9.2 kΩ would be expected.
 
-Há também um cabo de 8 fios entre a placa do display e a placa do amp. Falta confirmar em qual conector ele chega. Antes de medir continuidade nele, conferir tensão, porque a placa do amp pode guardar carga. Medir só na placa do display.
+There is also an 8-wire cable between the display board and the amp board. Still to confirm which connector it arrives at. Before measuring continuity on it, check the voltage, because the amp board may hold a charge. Measure on the display board only.
 
-Tensão nos 8 fios contra o GND, com o amp fora da tomada: 0 V em todos. Olhando a placa de frente, os fios são G1 a G8, da esquerda para a direita.
+Voltage on the 8 wires to GND, with the amp unplugged: 0 V on all of them. Looking at the board from the front, the wires are G1 to G8, left to right.
 
-| Fio | Função | Liga em |
+| Wire | Function | Connects to |
 |---|---|---|
-| G1 | Saída do Q902 | Perna do Q902 mais perto da borda |
+| G1 | Q902 output | Q902 leg closest to the edge |
 | G2 | GND | GND |
-| G3 | Sinal do controlador | **Perna 16 do chip** |
-| G4 | +5 V | Perna 40 |
+| G3 | Controller signal | **Chip leg 16** |
+| G4 | +5 V | Leg 40 |
 | G5 | GND | GND |
-| G6 | A descobrir | Nenhuma perna testada apitou |
-| G7 | A descobrir | Nenhuma perna testada apitou |
-| G8 | A descobrir | Nenhuma perna testada apitou |
+| G6 | Unknown | No tested leg beeped |
+| G7 | Unknown | No tested leg beeped |
+| G8 | Unknown | No tested leg beeped |
 
-Pernas testadas em G1, G3, G6, G7 e G8: 4, 15–17, 23, 26, 27 e 29–31.
+Legs tested on G1, G3, G6, G7 and G8: 4, 15–17, 23, 26, 27 and 29–31.
 
-Q902, visto por cima com o LCD à esquerda: Q1 é a perna da esquerda, Q2 a do meio e Q3 a da direita. Em continuidade, nenhuma das três apita com o GND (falta a resposta para G1, G6, G7 e G8).
+Q902, seen from above with the LCD on the left: Q1 is the left leg, Q2 the middle one and Q3 the right one. On continuity, none of the three beeps with GND (the answer for G1, G6, G7 and G8 is still missing).
 
-Q2 em Ω (escala 20k):
+Q2 in Ω (20k range):
 
-| Perna do chip | Leitura | Leitura provável |
+| Chip leg | Reading | Likely interpretation |
 |---|---|---|
-| 15 | 4,66 kΩ | Resistor de base de 4,7 kΩ: Q2 liga à perna 15 |
-| 4, 16, 17, 23, 26, 27 | 13,92 kΩ | 4,66 + 4,6 + 4,6 kΩ, passando pela perna 15 e pelo +5 V |
-| 31 | 9,30 kΩ | 4,66 + 4,6 kΩ: a perna 31 está no +5 V |
-| 29, 30 | sem leitura | Sem ligação a estes pontos |
+| 15 | 4.66 kΩ | 4.7 kΩ base resistor: Q2 connects to leg 15 |
+| 4, 16, 17, 23, 26, 27 | 13.92 kΩ | 4.66 + 4.6 + 4.6 kΩ, through leg 15 and +5 V |
+| 31 | 9.30 kΩ | 4.66 + 4.6 kΩ: leg 31 is on +5 V |
+| 29, 30 | no reading | Not connected to these points |
 
-A mensagem original dizia "37"; a medição pedida era a perna 27.
+The original message said "37"; the requested measurement was leg 27.
 
-**Conclusões:**
+**Conclusions:**
 
-- A perna 15 aciona a base do Q902 por um resistor de cerca de 4,7 kΩ.
-- A perna do Q902 mais perto da borda da placa apita com G1. A perna mais longe da borda apita com G4 (+5 V). A do meio é Q2, a base.
-- Pela ordem usual do 2N4401, a perna do +5 V é o coletor, e a de G1 é o emissor. Assim, quando a perna 15 sobe, o Q902 deve levar cerca de 4,3 V ao fio G1, que vai à placa do amp. Falta confirmar com o amp ligado.
-- A perna 31 no +5 V e as pernas 29 e 30 soltas combinam com um 8051 (EA alto; PSEN e ALE sem uso). É um bom indício, não uma prova.
+- Leg 15 drives the base of Q902 through a resistor of about 4.7 kΩ.
+- The Q902 leg closest to the board edge beeps with G1. The leg farthest from the edge beeps with G4 (+5 V). The middle one is Q2, the base.
+- With the usual 2N4401 pinout, the +5 V leg is the collector and the G1 leg is the emitter. So when leg 15 goes high, Q902 should put about 4.3 V on wire G1, which goes to the amp board. Still to confirm with the amp on.
+- Leg 31 on +5 V and legs 29 and 30 unconnected match an 8051 (EA high; PSEN and ALE unused). It is a good hint, not proof.
 
-**Em aberto:** o que G3 faz, e se algum dos fios G1, G6, G7 e G8 passa pelo Q902 ou é de áudio.
+**Open:** what G3 does, and whether any of the wires G1, G6, G7 and G8 goes through Q902 or carries audio.
 
-## LED da frente (2026-11-05)
+## Front LED (2026-11-05)
 
-O LED tem 3 pernas: L1 (esquerda), L2 (meio) e L3 (direita). Nenhuma apita com o GND.
+The LED has 3 legs: L1 (left), L2 (middle) and L3 (right). None beeps with GND.
 
-| Perna | Apita com | Provável função |
+| Leg | Beeps with | Likely function |
 |---|---|---|
-| L1 | Nada | Uma das cores |
-| L2 | Perna 40, perna 31 e G4 | Comum, no +5 V |
-| L3 | Nada | Uma das cores |
+| L1 | Nothing | One of the colours |
+| L2 | Leg 40, leg 31 and G4 | Common, on +5 V |
+| L3 | Nothing | One of the colours |
 
-Três pernas com o meio no +5 V sugerem um LED de duas cores com anodo comum. O apito de L2 com a perna 31 confirma que a perna 31 está no +5 V.
+Three legs with the middle one on +5 V suggest a two-colour common-anode LED. L2 beeping with leg 31 confirms that leg 31 is on +5 V.
 
-Em Ω (escala 20k):
+In Ω (20k range):
 
-| Perna do LED | Perna do chip | Leitura | Leitura provável |
+| LED leg | Chip leg | Reading | Likely interpretation |
 |---|---|---|---|
-| L1 | 26 | 0,99 kΩ | Resistor de cerca de 1 kΩ: L1 liga à perna 26 |
-| L1 | 4, 17, 23, 27 | 10,25 kΩ | 0,99 + 4,6 + 4,6 kΩ, passando pelo +5 V |
-| L3 | 27 | 0,45 kΩ | Resistor de cerca de 470 Ω: L3 liga à perna 27 |
-| L3 | 4, 17, 23, 26 | cerca de 9,7 kΩ | 0,45 + 4,6 + 4,6 kΩ, passando pelo +5 V |
+| L1 | 26 | 0.99 kΩ | Resistor of about 1 kΩ: L1 connects to leg 26 |
+| L1 | 4, 17, 23, 27 | 10.25 kΩ | 0.99 + 4.6 + 4.6 kΩ, through +5 V |
+| L3 | 27 | 0.45 kΩ | Resistor of about 470 Ω: L3 connects to leg 27 |
+| L3 | 4, 17, 23, 26 | about 9.7 kΩ | 0.45 + 4.6 + 4.6 kΩ, through +5 V |
 
-Observado com o amp ligado: **vermelho em standby, verde ligado**. Girar o volume não muda a cor. Falta medir qual perna acende cada cor (L1/perna 26 ou L3/perna 27).
+Observed with the amp on: **red in standby, green when on**. Turning the volume does not change the colour. Still to measure which leg lights each colour (L1/leg 26 or L3/leg 27).
 
 ## Transistor Q901 (2026-11-05)
 
-Visto por cima, com o LCD à esquerda: T1 é a perna da esquerda, T2 a do meio e T3 a da direita.
+Seen from above, with the LCD on the left: T1 is the left leg, T2 the middle one and T3 the right one.
 
-| Perna | Apita com | Provável função |
+| Leg | Beeps with | Likely function |
 |---|---|---|
-| T1 | Perna 4, por cerca de 470 Ω (0,46 kΩ) | Base, a confirmar |
-| T2 | Pino 15 do display (luz de fundo) | Saída para a luz de fundo |
-| T3 | Perna 40 e G4 (+5 V) | Entrada do +5 V |
+| T1 | Leg 4, through about 470 Ω (0.46 kΩ) | Base, to be confirmed |
+| T2 | Display pin 15 (backlight) | Output to the backlight |
+| T3 | Leg 40 and G4 (+5 V) | +5 V input |
 
-O Q901 parece ser a chave da luz de fundo do LCD, acionada pela perna 4. T1 × pernas 17 e 23 deu 9,69 e 9,66 kΩ, que são 0,46 + 4,6 + 4,6 kΩ passando pelo +5 V. Falta confirmar com o amp ligado se a perna 4 muda entre standby e ligado.
+Q901 looks like the LCD backlight switch, driven by leg 4. T1 × legs 17 and 23 read 9.69 and 9.66 kΩ, which are 0.46 + 4.6 + 4.6 kΩ through +5 V. Still to confirm with the amp on whether leg 4 changes between standby and on.
 
-## A reconferir (2026-11-05)
+## To recheck (2026-11-05)
 
-Pode ter havido erro de contagem das pernas nas medições anteriores à dos botões K1–K7, que está correta. Ficam a reconferir, usando as pernas 13, 20 e 21 como referência:
+The leg count may have been off in the measurements made before the K1–K7 buttons, which are correct. To be rechecked, using legs 13, 20 and 21 as reference:
 
-- [x] IR, sinal → perna 12: confirmado (apita na 12; não apita na 11 nem na 13)
-- [x] Encoder, E1 → perna 22 e E2 → perna 21: contagem confirmada
-- [x] Leituras em Ω de E1 com as pernas 1, 2 e 3 (6,9 kΩ): contagem confirmada
+- [x] IR, signal → leg 12: confirmed (beeps on 12; does not beep on 11 or 13)
+- [x] Encoder, E1 → leg 22 and E2 → leg 21: count confirmed
+- [x] E1 Ω readings to legs 1, 2 and 3 (6.9 kΩ): count confirmed
 
-## Em uso (2026-11-06)
+## In use (2026-11-06)
 
-O Pico de dentro do amp usa estes pontos: o sinal do IR (GP15), o E1 do encoder (GP14) e as pernas 6 e 13 do botão
-Function, que é o K7 (GP0 e GP1). Ver `../proxy-ligacao.md`. As capturas dos PT2314 saíram do plano, porque o volume já
-vem do display.
+The Pico inside the amp uses these points: the IR signal (GP15), the encoder's E1 (GP14) and legs 6 and 13 of the
+Function button, which is K7 (GP0 and GP1). See `../proxy-ligacao.md`. The PT2314 captures were dropped from the plan,
+because the volume already comes from the display.
 
-**Function (2026-11-06):** com o botão solto, a perna 6 pulsa e a perna 13 fica em 1. Com ele apertado, a perna 13 cai
-junto com a 6 em todos os pulsos. Os pulsos da perna 6 vêm em grupos de 3, com cerca de 30 µs cada, a cada 320 µs.
+**Function (2026-11-06):** with the button released, leg 6 pulses and leg 13 stays at 1. With it pressed, leg 13 drops
+together with leg 6 on every pulse. The leg 6 pulses come in groups of 3, about 30 µs each, every 320 µs.
 
-## Falta medir
+## Still to measure
 
-- [ ] C907: achar onde liga
-- [ ] G6, G7 e G8: achar para onde vão
-- [ ] Pernas 17 e 23: ainda sem função conhecida
+- [ ] C907: find where it connects
+- [ ] G6, G7 and G8: find where they go
+- [ ] Legs 17 and 23: function still unknown

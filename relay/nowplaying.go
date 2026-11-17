@@ -1,12 +1,13 @@
 package main
 
-// Telas de informação: o que está tocando, para o display do SP103 (docs/api-telas.md).
+// Info screens: what is playing, for the SP103 display (docs/api-telas.md).
 //
-// Esta ponte é o adaptador do groove: lê o groove-identity (artista, música, posição,
-// faixa no disco), o groove-catalog (faixas do disco, agulha) e o arquivo de transporte
-// do groove-detector (AirPlay ou Bluetooth tocando, e a qualidade) e traduz para o
-// contrato do Pico, que não sabe de onde os dados vêm. O Pico só desenha: o texto chega sem
-// acentos e cortado, e os tempos valem no instante do envio (o Pico conta a partir dali).
+// This bridge is the groove adapter: it reads groove-identity (artist, song, position,
+// track on the record), groove-catalog (record tracks, stylus) and the groove-detector
+// transport file (AirPlay or Bluetooth playing, and its quality) and translates them into
+// the Pico contract, which does not know where the data comes from. The Pico only draws:
+// text arrives without accents and truncated, and times are valid at the moment of sending
+// (the Pico counts from there).
 
 import (
 	"encoding/json"
@@ -29,19 +30,19 @@ const (
 	npFlagSideEnd = 1 << 1
 
 	infoPoll    = time.Second
-	infoEvery   = 5 * time.Second // mesmo sem mudança
+	infoEvery   = 5 * time.Second // even without a change
 	stylusEvery = 10 * time.Minute
 	sideEndHold = 15 * time.Minute
-	// "Acabou o lado" só se a última faixa estava a menos disto do fim, pela duração do
-	// catálogo. Medido no Pi 5 em 2026-10-30: Exodus (A5) acabou 12 s antes da duração do
-	// catálogo; One Love (B5), 5 s depois. Escolhido com folga sobre os dois.
+	// "Side ended" only if the last track was less than this from its end, by the catalog
+	// duration. Measured on the Pi 5 on 2026-10-30: Exodus (A5) ended 12 s before the
+	// catalog duration; One Love (B5), 5 s after. Chosen with margin over both.
 	sideEndNear  = 30 // s
 	maxText      = 40
 	httpTimeout  = 2 * time.Second
 	fieldDivider = "\x1f"
 )
 
-// info é o que vai num pacote "NP". Números < 0 = não se sabe (campo vazio).
+// info is what goes in an "NP" packet. Numbers < 0 = unknown (empty field).
 type info struct {
 	Playing, SideEnd                bool
 	Artist, Title, Position, Side   string
@@ -51,7 +52,7 @@ type info struct {
 	stream
 }
 
-// streamSource é o streaming tocando agora, como vai no pacote; "" = nenhum.
+// streamSource is the streaming source playing now, as sent in the packet; "" = none.
 type streamSource string
 
 const (
@@ -60,7 +61,7 @@ const (
 	streamBluetooth streamSource = "bluetooth"
 )
 
-// stream é o streaming tocando e a qualidade dele (o groove-detector sabe a do Bluetooth).
+// stream is the streaming source playing and its quality (the groove-detector knows Bluetooth's).
 type stream struct {
 	Source                           streamSource
 	Codec                            string
@@ -76,7 +77,7 @@ func unknownInfo() info {
 		StylusHours: -1, StylusWear: -1, stream: unknownStream()}
 }
 
-// packet monta o datagrama "NP" (docs/api-telas.md).
+// packet builds the "NP" datagram (docs/api-telas.md).
 func (in info) packet() []byte {
 	num := func(v int) string {
 		if v < 0 {
@@ -98,7 +99,7 @@ func (in info) packet() []byte {
 	return append([]byte{'N', 'P', npVersion, flags}, strings.Join(fields, fieldDivider)...)
 }
 
-// sameScreen diz se duas leituras mostram o mesmo: os tempos andam sozinhos no Pico.
+// sameScreen says whether two readings show the same thing: times advance on their own on the Pico.
 func sameScreen(a, b info) bool {
 	a.Elapsed, a.SideLeft, b.Elapsed, b.SideLeft = 0, 0, 0, 0
 	return a == b
@@ -121,8 +122,9 @@ func init() {
 	}
 }
 
-// fold deixa o texto no que a ROM do display tem: ASCII de " " a "}", sem "\" (vira "¥"
-// no display) e cortado em maxText caracteres. Letras sem equivalente viram "?".
+// fold reduces the text to what the display ROM has: ASCII from " " to "}", without "\"
+// (it shows as "¥" on the display) and truncated to maxText characters. Letters with no
+// equivalent become "?".
 func fold(s string) string {
 	var b strings.Builder
 	for _, r := range strings.Join(strings.Fields(s), " ") {
@@ -145,8 +147,8 @@ func fold(s string) string {
 	return strings.TrimSpace(out)
 }
 
-// transportFile é o pedaço do /tmp/groove-transport.json do groove-detector que interessa
-// aqui (docs/contracts.md dele, "Streaming transport file").
+// transportFile is the part of the groove-detector's /tmp/groove-transport.json that
+// matters here (its docs/contracts.md, "Streaming transport file").
 type transportFile struct {
 	Source     string `json:"source"`
 	Active     bool   `json:"active"`
@@ -156,8 +158,8 @@ type transportFile struct {
 	Bitrate    string `json:"bitrate"`    // "328 kbps"
 }
 
-// readStream lê o arquivo de transporte. Sem arquivo, parado ou com uma fonte que o
-// contrato não conhece: nenhum streaming.
+// readStream reads the transport file. No file, stopped, or a source the contract does
+// not know: no streaming.
 func readStream(path string) stream {
 	st := unknownStream()
 	data, err := os.ReadFile(path)
@@ -181,7 +183,7 @@ func readStream(path string) stream {
 	return st
 }
 
-// parseUnit lê "44.1 kHz" com a tabela de unidades (kHz → 1000): 44100. -1 se não der.
+// parseUnit reads "44.1 kHz" with the unit table (kHz → 1000): 44100. -1 if it cannot.
 func parseUnit(s string, units map[string]float64) int {
 	f := strings.Fields(s)
 	if len(f) != 2 {
@@ -195,13 +197,13 @@ func parseUnit(s string, units map[string]float64) int {
 	return int(math.Round(v * scale))
 }
 
-// track é uma faixa do disco no catálogo.
+// track is a record track in the catalog.
 type track struct {
 	Position string `json:"track_position"`
 	Duration int64  `json:"duration_ms"`
 }
 
-// splitPosition separa "A4" em lado "A" e número 4. Sem letra (um CD: "4") = sem lado.
+// splitPosition splits "A4" into side "A" and number 4. No letter (a CD: "4") = no side.
 func splitPosition(pos string) (side string, n int, ok bool) {
 	pos = strings.TrimSpace(pos)
 	i := 0
@@ -215,9 +217,9 @@ func splitPosition(pos string) (side string, n int, ok bool) {
 	return strings.ToUpper(pos[:i]), n, true
 }
 
-// sideOf calcula lado, faixa no lado, faixas no lado e o tempo até o fim do lado (s).
-// left = o que falta da faixa de agora. Sem a duração de alguma faixa seguinte, o tempo
-// do lado fica -1.
+// sideOf computes the side, track on the side, tracks on the side and the time to the
+// end of the side (s). left = what remains of the current track. Without the duration of
+// any following track, the side time is -1.
 func sideOf(tracks []track, pos string, left int) (side string, idx, total, sideLeft int) {
 	side, n, ok := splitPosition(pos)
 	if !ok {
@@ -255,7 +257,7 @@ func sideOf(tracks []track, pos string, left int) (side string, idx, total, side
 	return side, idx, len(same), sideLeft
 }
 
-// identityStatus é o pedaço do GET /status do groove-identity que interessa aqui.
+// identityStatus is the part of groove-identity's GET /status that matters here.
 type identityStatus struct {
 	Playback struct {
 		Active        bool   `json:"active"`
@@ -283,19 +285,19 @@ type stylusState struct {
 	} `json:"metrics"`
 }
 
-// nowPlaying lê os serviços do groove e guarda o que precisa entre uma leitura e outra.
+// nowPlaying reads the groove services and keeps what it needs between readings.
 type nowPlaying struct {
 	identity, catalog, transport string
 	client                       *http.Client
 
-	release    string // source/id do disco cujas faixas estão em tracks
+	release    string // source/id of the record whose tracks are in tracks
 	tracks     []track
-	stylus     info // só os campos da agulha
+	stylus     info // only the stylus fields
 	stylusAt   time.Time
-	last       info // a leitura anterior
+	last       info // the previous reading
 	sideEndAt  time.Time
-	lastWasEnd bool   // a leitura anterior era a última faixa do lado, perto do fim
-	endedEpoch uint64 // a captura da última faixa de um lado que já acabou
+	lastWasEnd bool   // the previous reading was the last track of the side, near its end
+	endedEpoch uint64 // the capture of the last track of a side that has already ended
 }
 
 func newNowPlaying(identity, catalog, transport string) *nowPlaying {
@@ -315,7 +317,7 @@ func (np *nowPlaying) getJSON(u string, v any) error {
 	return json.NewDecoder(resp.Body).Decode(v)
 }
 
-// read faz uma leitura completa. Um serviço fora do ar só esvazia os campos dele.
+// read does a full reading. A service that is down only empties its own fields.
 func (np *nowPlaying) read(now time.Time) info {
 	in := unknownInfo()
 	if np.stylusAt.IsZero() || now.Sub(np.stylusAt) >= stylusEvery {
@@ -338,11 +340,12 @@ func (np *nowPlaying) read(now time.Time) info {
 		return in
 	}
 	pb := st.Playback
-	// Quando a música acaba, o groove-listener vê o fim da faixa e o identity abre uma
-	// captura nova (o sulco final) antes de largar a faixa que mostrava (27 s antes às 16:03). Na última
-	// faixa do lado, perto do fim, essa captura nova já é o fim do lado; a faixa que o
-	// identity continua mostrando, com a captura velha, não volta a contar como tocando.
-	// Medido no Pi 5 em 2026-10-30: 15:36:51 e 16:03:12, os dois fins de lado do dia.
+	// When the music ends, groove-listener sees the end of the track and identity opens a
+	// new capture (the run-out groove) before dropping the track it was showing (27 s
+	// earlier at 16:03). On the last track of the side, near its end, that new capture is
+	// already the end of the side; the track identity keeps showing, with the old capture,
+	// no longer counts as playing.
+	// Measured on the Pi 5 on 2026-10-30: 15:36:51 and 16:03:12, the day's two side ends.
 	if np.lastWasEnd && pb.Epoch != 0 && st.Recognition.Epoch > pb.Epoch {
 		np.endedEpoch = pb.Epoch
 	}
@@ -365,7 +368,7 @@ func (np *nowPlaying) read(now time.Time) info {
 		np.lastWasEnd = in.SideTrack > 0 && in.SideTrack == in.SideTracks && left >= 0 && left <= sideEndNear
 		np.sideEndAt, np.endedEpoch = time.Time{}, 0
 	} else if np.lastWasEnd || (!np.sideEndAt.IsZero() && now.Sub(np.sideEndAt) < sideEndHold) {
-		// A última faixa do lado acabou (captura nova ou reconhecimento parado): "Flip the record".
+		// The last track of the side ended (new capture or recognition stopped): "Flip the record".
 		if np.sideEndAt.IsZero() {
 			np.sideEndAt = now
 			log.Printf("side %s ended", np.last.Side)
@@ -382,12 +385,12 @@ func (np *nowPlaying) read(now time.Time) info {
 	return in
 }
 
-// loadTracks busca as faixas do disco uma vez por disco.
+// loadTracks fetches the record's tracks once per record.
 //
-// A lista vem da edição do disco (/edition: todas as faixas, com duração). O /tracks só
-// tem as faixas que já tocaram e entraram na biblioteca: num disco novo, só a A1, que aí
-// parecia a última do lado A e dava um "End of side A" falso (All Shook Down, 2026-11-07).
-// Ele fica de reserva se a edição não responder.
+// The list comes from the record's edition (/edition: all tracks, with duration). /tracks
+// only has the tracks that have already played and entered the library: on a new record,
+// only A1, which then looked like the last on side A and gave a false "End of side A"
+// (All Shook Down, 2026-11-07). It stays as a fallback if the edition does not answer.
 func (np *nowPlaying) loadTracks(source, id string) {
 	key := source + "/" + id
 	if key == np.release {
@@ -418,16 +421,16 @@ func (np *nowPlaying) loadTracks(source, id string) {
 	}
 	if err := np.getJSON(base+"/tracks", &resp); err != nil {
 		log.Printf("tracks %s: %v", key, err)
-		np.tracks = nil // tenta de novo na próxima leitura
+		np.tracks = nil // try again on the next reading
 		return
 	}
-	// Sem a edição a lista pode estar incompleta: não guarda, lê de novo na próxima vez.
+	// Without the edition the list may be incomplete: do not cache it, read again next time.
 	np.tracks = resp.Items
 	log.Printf("release %s: %d tracks (library)", key, len(resp.Items))
 }
 
-// pumpInfo lê os serviços a cada segundo, só enquanto alguém pede as telas, e manda o
-// pacote quando o que aparece muda ou a cada infoEvery.
+// pumpInfo reads the services every second, only while someone requests the screens, and
+// sends the packet when what is shown changes or every infoEvery.
 func (r *relay) pumpInfo(np *nowPlaying, conn *net.UDPConn) {
 	var sent info
 	var sentAt time.Time

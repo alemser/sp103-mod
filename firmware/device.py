@@ -1,17 +1,17 @@
-"""GET /device: quem é esta ponte e o que ela sabe fazer.
+"""GET /device: who this bridge is and what it can do.
 
-O contrato está no repositório amp-link (docs/contrato.md). Tudo aqui é fixo enquanto o programa
-roda: o cliente lê uma vez ao conectar. A versão é a mesma do GET /update.
+The contract is in the amp-link repository (docs/contrato.md). Everything here is fixed while the program
+runs: the client reads it once on connecting. The version is the same as GET /update's.
 
-describe() roda igual no MicroPython (Pico) e no Python do computador (tools/test_device.py).
+describe() runs the same in MicroPython (Pico) and in the computer's Python (tools/test_device.py).
 """
 
 from amp_state import INPUTS, INPUT_IDS, STEP, VOLUME_MIN
 
-API = 1                         # só muda quando algo deixa de ser compatível
+API = 1                         # only changes when something stops being compatible
 MODEL = "Acoustic Solutions SP103"
-TONE_DB = 14                    # bass e treble: de -14 a 14
-TONE_STEP = 2                   # cada toque no amp muda 2 dB
+TONE_DB = 14                    # bass and treble: from -14 to 14
+TONE_STEP = 2                   # each press on the amp changes 2 dB
 COLUMNS, ROWS = 16, 2
 FEATURES = ("tone", "balance", "loudness", "speakers", "config", "vu", "info_screens", "bus_log", "update", "wifi_setup",
             "control")
@@ -27,7 +27,7 @@ def describe(version):
 
 
 async def handle(req, writer):
-    """Rota /device (ver web.Publisher)."""
+    """/device route (see web.Publisher)."""
     import ota
     from web import reply, reply_json
     if req.path != "/device":

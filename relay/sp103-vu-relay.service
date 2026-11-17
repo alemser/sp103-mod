@@ -1,5 +1,5 @@
 [Unit]
-Description=sp103-vu-relay — VU do groove-detector para o display do SP103 (UDP)
+Description=sp103-vu-relay — groove-detector VU to the SP103 display (UDP)
 Documentation=https://github.com/alemser/sp103-mod
 After=groove-detector.service network-online.target
 Wants=network-online.target
@@ -7,14 +7,14 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/sp103-vu-relay
-# Só lê o socket do VU (root:groove 0660) e o arquivo do gate; não precisa de mais nada.
-# Sem DynamicUser: ele força um /tmp privado, e os sockets do detector estão no /tmp de verdade.
+# Only reads the VU socket (root:groove 0660) and the gate file; needs nothing else.
+# No DynamicUser: it forces a private /tmp, and the detector's sockets live in the real /tmp.
 User=nobody
 Group=groove
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
-# Abaixo da captura e do reconhecimento: o VU pode perder quadros, eles não.
+# Below capture and recognition: the VU may drop frames, they may not.
 Nice=5
 Restart=always
 RestartSec=3

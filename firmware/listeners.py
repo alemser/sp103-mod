@@ -1,19 +1,19 @@
-"""Quem pode ficar ligado no /events: uma conexão por IP, e poucas no total.
+"""Who may stay on /events: one connection per IP, and few in total.
 
-Uma conexão morta (celular que perdeu o Wi-Fi) só some depois de minutos, e cada uma prende
-memória do lwIP e recebe escritas. Com 4 mortas ao mesmo tempo o servidor parou de vez
-(issue #2). Um cliente que reconecta vem do mesmo IP: a conexão nova toma o lugar da antiga.
-O teto só age com clientes demais, e aí sai o mais antigo.
+A dead connection (a phone that lost Wi-Fi) only goes away after minutes, and each one holds
+lwIP memory and receives writes. With 4 dead at once the server stopped for good
+(issue #2). A client that reconnects comes from the same IP: the new connection takes the old one's place.
+The cap only acts with too many clients, and then the oldest goes.
 
-Roda igual no MicroPython (Pico) e no Python do computador (tools/test_listeners.py).
+Runs the same in MicroPython (Pico) and in the computer's Python (tools/test_listeners.py).
 """
 
 MAX_LISTENERS = 3
 
 
 def make_room(listeners, ip, limit=MAX_LISTENERS):
-    """Abre lugar para uma conexão nova de ip. listeners: [(ip, writer)], a mais antiga primeiro.
-    Quem sai da lista percebe sozinho e fecha (web.py): nada escreve mais nela."""
+    """Makes room for a new connection from ip. listeners: [(ip, writer)], oldest first.
+    Whoever leaves the list notices by itself and closes (web.py): nothing writes to it any more."""
     for entry in [e for e in listeners if ip is not None and e[0] == ip]:
         listeners.remove(entry)
     while len(listeners) >= limit:

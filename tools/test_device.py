@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Testa no computador a descrição da ponte (firmware/device.py).
+"""Tests the bridge's description (firmware/device.py) on the computer.
 
     python3 tools/test_device.py
 """
@@ -23,4 +23,4 @@ assert [i["name"] for i in d["inputs"]] == list(INPUTS)
 assert [i["id"] for i in d["inputs"]] == ["phono", "tuner", "tape_aux", "cd", "dvd", "dab"]
 assert d["display"] == {"columns": 16, "rows": 2}
 assert "config" in d["features"] and "control" in d["features"] and "wifi_setup" in d["features"]
-print("tudo certo")
+print("all good")

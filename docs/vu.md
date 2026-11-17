@@ -1,111 +1,111 @@
-# VU meter no display do amp
+# VU meter on the amp's display
 
-Com o VU meter ligado na app (aba Display), as duas linhas do display viram as barras dos canais esquerdo (L) e direito
-(R) **enquanto houver música**. Desde 2026-10-29. Proposta visual: <https://claude.ai/artifact/6Zrty8KCsb3ZRsa7Uh2Ax7>.
+With the VU meter turned on in the app (Display tab), the display's two lines become the bars for the left (L) and right
+(R) channels **while music is playing**. Since 2026-10-29. Visual proposal: <https://claude.ai/artifact/6Zrty8KCsb3ZRsa7Uh2Ax7>.
 
-## Caminho dos dados
+## Data path
 
 ```
-groove-detector ──socket Unix──► sp103-vu-relay ──UDP, Wi-Fi──► Pico (vu.py, proxy.py)
- /tmp/groove-vu.sock              (na placa)                      pede a cada 2 s
+groove-detector ──Unix socket──► sp103-vu-relay ──UDP, Wi-Fi──► Pico (vu.py, proxy.py)
+ /tmp/groove-vu.sock              (on the board)                  requests every 2 s
  /tmp/groove-gate.json
 ```
 
-- **groove-detector** (sem mudança): publica o RMS de cada canal num socket Unix e diz no arquivo do gate se há música
-  (`"state": "programme"` ou `"idle"`). Formato no `docs/contracts.md` dele.
-- **sp103-vu-relay** (`relay/`, Go): só mais um leitor do socket e do gate. Envia cada quadro por UDP a quem pediu nos
-  últimos 6 s, no máximo 4 pedidos.
-- **Pico** (`firmware/vu.py`): com o VU ligado, pede os quadros a cada 2 s. Calcula as barras, a queda, o pico e o clip,
-  e o `proxy.py` escolhe entre o VU e a tela do amp.
+- **groove-detector** (unchanged): publishes each channel's RMS on a Unix socket and says in the gate file whether music is playing
+  (`"state": "programme"` or `"idle"`). Format in its `docs/contracts.md`.
+- **sp103-vu-relay** (`relay/`, Go): just one more reader of the socket and the gate. Sends each frame over UDP to whoever requested it in the
+  last 6 s, up to 4 requests.
+- **Pico** (`firmware/vu.py`): with the VU on, requests the frames every 2 s. It computes the bars, the decay, the peak and the clip,
+  and `proxy.py` chooses between the VU and the amp's screen.
 
-O detector não sabe que o SP103 existe, e o Pico só conhece o IP da ponte. Se a ponte, o detector ou o Wi-Fi caírem, o
-Pico volta sozinho para a tela do amp em 1 s.
+The detector does not know the SP103 exists, and the Pico only knows the bridge's IP. If the bridge, the detector or the Wi-Fi go down, the
+Pico goes back to the amp's screen on its own within 1 s.
 
-### Protocolo (UDP, porta 7091)
+### Protocol (UDP, port 7091)
 
-| Mensagem | De → para | Bytes |
+| Message | From → to | Bytes |
 |---|---|---|
-| Pedido | Pico → ponte | `SUB1` (4 bytes); vale 6 s |
-| Quadro | ponte → Pico | `VU`, `0x01`, flags, float32 L, float32 R (12 bytes, little-endian, RMS 0 a 1) |
+| Request | Pico → bridge | `SUB1` (4 bytes); valid for 6 s |
+| Frame | bridge → Pico | `VU`, `0x01`, flags, float32 L, float32 R (12 bytes, little-endian, RMS 0 to 1) |
 
-Flags: bit 0 = há música; bit 1 = o arquivo do gate foi lido. Sem o arquivo do gate, a ponte diz "sem música".
+Flags: bit 0 = music playing; bit 1 = the gate file was read. Without the gate file, the bridge says "no music".
 
-## O que o display mostra
+## What the display shows
 
-1. **VU desligado** na app: tudo como antes. O Pico nem pede os quadros.
-2. **VU ligado, com música e quadros chegando**: L na linha 1, R na linha 2. Coluna 0 = a letra; colunas 1 a 15 = a barra,
-   5 colunas de pixels cada: 75 passos do piso até o topo (escala automática).
-3. **O controlador desenhou uma tela** (volume, entrada, menu, ligar): a tela do amp aparece na hora e fica 3 s depois do
-   último redesenho.
-4. **Sem música, sem quadros por 1 s, ou o display do amp desligado**: tela do amp.
+1. **VU off** in the app: everything as before. The Pico does not even request the frames.
+2. **VU on, with music and frames arriving**: L on line 1, R on line 2. Column 0 = the letter; columns 1 to 15 = the bar,
+   5 pixel columns each: 75 steps from floor to top (automatic scale).
+3. **The controller drew a screen** (volume, input, menu, power on): the amp's screen appears at once and stays for 3 s after the
+   last redraw.
+4. **No music, no frames for 1 s, or the amp's display off**: the amp's screen.
 
-A barra sobe na hora e, cheia, esvazia em 0,5 s (a queda acompanha o tamanho da escala). O pico fica parado 1 s e cai
-a escala inteira em 1 s. Acima de −1 dBFS, a última célula acende
-inteira por 1 s (clip). Pontinhos no fundo da barra vazia marcam −30, −20, −10, −6 e −3 dB abaixo do topo (só os que estão acima
-do piso). O clip é sempre o de verdade (−1 dBFS), mesmo com o topo abaixo de 0.
+The bar rises instantly and, when full, empties in 0.5 s (the decay follows the size of the scale). The peak holds for 1 s and falls
+the whole scale in 1 s. Above −1 dBFS, the last cell lights
+fully for 1 s (clip). Dots at the bottom of the empty bar mark −30, −20, −10, −6 and −3 dB below the top (only those above
+the floor). The clip is always the real one (−1 dBFS), even with the top below 0.
 
-Isso é o layout "barras finas". Há quatro layouts, e cada um tem os seus 8 desenhos próprios. No modo VU eles tomam o
-lugar das barras do amp; ao voltar para a tela do amp, o Pico grava de volta os do controlador.
+That is the "thin bars" layout. There are four layouts, and each has its own 8 glyphs. In VU mode they take the
+place of the amp's bar glyphs; when going back to the amp's screen, the Pico writes the controller's back.
 
-| Layout | Linhas | Passos | Desenhos |
+| Layout | Lines | Steps | Glyphs |
 |---|---|---|---|
-| Barras finas (`bars`) | L e R, uma linha cada, com a letra na coluna 0 | 75 | 1 a 4 colunas, célula cheia, pico, marca da escala, clip (`vu.GLYPHS`) |
-| Deck de cassete (`deck`) | como as barras, com 2 segmentos separados por célula; os das 3 últimas células mais altos (a zona quente). O pico é um segmento sozinho; o clip acende a última célula | 30 | 7 (`vu.DECK_GLYPHS`) |
-| Escala impressa (`scale`) | L e R na linha 1 (L na metade de cima de cada célula, R na de baixo); a linha 2 é a régua em dB abaixo do topo (`20 10 6 3 0` na escala automática). O pico é um segmento sozinho; no clip, o 0 da régua vira o bloco cheio da ROM | 32 | 8 pares L/R (`vu.SCALE_GLYPHS`) |
-| Yamaha KX-393 (`kx393`) | o medidor do deck: L e R na linha 1, sem letras (L em cima, R embaixo), um segmento por célula na escala do deck, de −30 a +8, de 2 em 2 dB perto do 0. O 0 do deck fica 10 dB abaixo do topo; os segmentos acima dele são mais altos. A linha 2 é a régua `30 17 10 4 0 4 8`. O pico é um segmento sozinho; o clip acende o último | 16 | 6 (`vu.KX_GLYPHS`) |
+| Thin bars (`bars`) | L and R, one line each, with the letter in column 0 | 75 | 1 to 4 columns, full cell, peak, scale mark, clip (`vu.GLYPHS`) |
+| Cassette deck (`deck`) | like the bars, with 2 separate segments per cell; those in the last 3 cells taller (the hot zone). The peak is a lone segment; the clip lights the last cell | 30 | 7 (`vu.DECK_GLYPHS`) |
+| Printed scale (`scale`) | L and R on line 1 (L in the top half of each cell, R in the bottom); line 2 is the ruler in dB below the top (`20 10 6 3 0` on the automatic scale). The peak is a lone segment; on clip, the ruler's 0 becomes the ROM's full block | 32 | 8 L/R pairs (`vu.SCALE_GLYPHS`) |
+| Yamaha KX-393 (`kx393`) | the deck's meter: L and R on line 1, no letters (L on top, R below), one segment per cell on the deck's scale, from −30 to +8, in 2 dB steps near 0. The deck's 0 sits 10 dB below the top; the segments above it are taller. Line 2 is the ruler `30 17 10 4 0 4 8`. The peak is a lone segment; the clip lights the last one | 16 | 6 (`vu.KX_GLYPHS`) |
 
 
-## Configuração (app, aba Display)
+## Settings (app, Display tab)
 
-| Campo | Padrão | Faixa |
+| Field | Default | Range |
 |---|---|---|
-| VU meter | Disabled | Disabled (desligado), barras finas, deck de cassete, escala impressa ou Yamaha KX-393 |
-| VU source (IP) | vazio | o IP da placa com a ponte, obrigatório com o VU ligado; o MicroPython não resolve nomes `.local` |
+| VU meter | Disabled | Disabled (off), thin bars, cassette deck, printed scale or Yamaha KX-393 |
+| VU source (IP) | empty | the IP of the board running the bridge, required with the VU on; MicroPython does not resolve `.local` names |
 
-A escala é sempre a automática (abaixo). Com "Disabled", o layout escolhido antes fica guardado para quando o VU voltar.
+The scale is always automatic (below). With "Disabled", the layout chosen before is kept for when the VU comes back.
 
-Fica no `names.json` do Pico, junto com os nomes (`"vu": {"on", "auto", "layout", "relay"}`; `"auto"` é sempre true, e o
-`"floor"`/`"top"` de um arquivo antigo é ignorado). A linha embaixo dos campos diz o
-que o VU está fazendo: "VU on the display now", "waiting for music", "no data from the VU source"...
+It lives in the Pico's `names.json`, together with the names (`"vu": {"on", "auto", "layout", "relay"}`; `"auto"` is always true, and the
+`"floor"`/`"top"` of an old file is ignored). The line below the fields says
+what the VU is doing: "VU on the display now", "waiting for music", "no data from the VU source"...
 
-**Escala automática (padrão desde 2026-10-29):** o nível do REC OUT muda muito com a fonte. Medido com
-música: DAB com média perto de −30 dBFS; vinil (o Rega na entrada TUNER) com média −11 e picos −3, nos dois sockets do
-detector, então não é ruído grave. Com a escala automática, o topo fica 5 dB acima do quadro mais alto: sobe na hora e,
-com música, desce 1 dB/s (do vinil ao DAB leva uns 24 s). O piso fica 20 dB abaixo do topo, como num VU de ponteiro: a
-música varia pouco de um quadro para outro (no vinil, 90 % dos quadros numa faixa de 7 dB), e com 20 dB a barra fica
-entre a metade e 3/4, mexendo. Sem música o topo fica parado; ele vai de −40 a 0 dB. A app mostra a escala de agora
+**Automatic scale (default since 2026-10-29):** the REC OUT level varies a lot with the source. Measured with
+music: DAB averaging around −30 dBFS; vinyl (the Rega on the TUNER input) averaging −11 with peaks of −3, on both of the
+detector's sockets, so it is not bass noise. With the automatic scale, the top sits 5 dB above the loudest frame: it rises instantly and,
+with music, falls 1 dB/s (from vinyl to DAB takes about 24 s). The floor sits 20 dB below the top, as on a needle VU: the
+music varies little from one frame to the next (on vinyl, 90 % of frames within a 7 dB range), and with 20 dB the bar stays
+between half and 3/4, moving. Without music the top stays put; it ranges from −40 to 0 dB. The app shows the current scale
 ("scale −26 to −6 dB").
 
-**Escala manual (removida da página em 2026-11-02):** piso e topo fixos, escolhidos à mão. Saiu porque a automática
-acompanha a fonte sozinha; o `vu.py` ainda a aceita (`"auto": false`), mas só os testes a usam.
+**Manual scale (removed from the page on 2026-11-02):** fixed floor and top, chosen by hand. It went because the automatic one
+follows the source on its own; `vu.py` still accepts it (`"auto": false`), but only the tests use it.
 
-**L e R iguais:** a placa de captura USB (GeneralPlus USB Audio Device) é mono: só a entrada de microfone, 1 canal
-(`/proc/asound/card0/stream0`: `Channels: 1`, `MONO`). O detector repete o mesmo valor nos dois canais, e o R do REC
-OUT provavelmente nem é medido. Com uma captura estéreo de linha, o VU mostra os dois canais sem mudar nada no Pico
-nem na ponte; só é preciso recalibrar o ganho no groove-detector.
+**L and R identical:** the USB capture board (GeneralPlus USB Audio Device) is mono: microphone input only, 1 channel
+(`/proc/asound/card0/stream0`: `Channels: 1`, `MONO`). The detector repeats the same value on both channels, and the REC
+OUT's R is probably not even measured. With a stereo line capture, the VU shows both channels without changing anything on the Pico
+or the bridge; only the gain needs recalibrating in the groove-detector.
 
-Se o VU der um erro no Pico, ele se desliga sozinho e o display continua com a tela do amp; a app mostra o erro.
-Diagnóstico em `http://sp103.local/names`, campo `vu` (quadros recebidos, idade do último, música).
+If the VU errors on the Pico, it turns itself off and the display carries on with the amp's screen; the app shows the error.
+Diagnostics at `http://sp103.local/names`, field `vu` (frames received, age of the last one, music).
 
-## Instalar a ponte
+## Installing the bridge
 
-Ver [`trocar-de-placa.md`](trocar-de-placa.md). Cada placa com o groove-detector pode ter a sua; o Pico escolhe pelo IP.
+See [`trocar-de-placa.md`](trocar-de-placa.md). Each board with the groove-detector can have its own; the Pico chooses by IP.
 
-O serviço `sp103-vu-relay` roda como `nobody`, no grupo `groove` (o socket do VU é `root:groove 0660`).
+The `sp103-vu-relay` service runs as `nobody`, in the `groove` group (the VU socket is `root:groove 0660`).
 
-## Atraso
+## Latency
 
-Estimado, ainda não medido: o detector junta um bloco de amostras antes de calcular (~46 ms), a ponte e o Wi-Fi somam
-de 5 a 20 ms (às vezes 50 a 100 ms), e o cristal do display leva de 100 a 200 ms para mudar um pixel. As barras
-acompanham a música como um VU de ponteiro; a batida seca do bumbo pode parecer um pouco atrasada. A economia de
-energia do Wi-Fi do Pico já está desligada (`wifi.py`).
+Estimated, not yet measured: the detector gathers a block of samples before computing (~46 ms), the bridge and Wi-Fi add
+5 to 20 ms (sometimes 50 to 100 ms), and the display's liquid crystal takes 100 to 200 ms to change a pixel. The bars
+follow the music like a needle VU; a sharp kick drum hit may look slightly late. The Pico's Wi-Fi
+power saving is already off (`wifi.py`).
 
-O VU mede o REC OUT, que normalmente sai antes do controle de volume do amp: com o volume baixo, as barras continuam
-altas.
+The VU measures REC OUT, which normally comes before the amp's volume control: with the volume low, the bars stay
+high.
 
-## Testes
+## Tests
 
-- `python3 tools/test_vu.py`: queda, pico, clip, desenho das linhas, pedido à ponte, "só com música" e a configuração.
-- `python3 tools/test_proxy.py`, parte 3: o VU alterna com a tela do amp (3 s depois de um redesenho) e some sem quadros.
-- `cd relay && make test`: pacote, pedidos (validade de 6 s, limite de 4), leitura do gate e o caminho completo.
-- Na rede (2026-10-29): a ponte enviou ~22 quadros/s ao Mac e ~33/s ao Pico.
+- `python3 tools/test_vu.py`: decay, peak, clip, line drawing, request to the bridge, "only with music" and the settings.
+- `python3 tools/test_proxy.py`, part 3: the VU alternates with the amp's screen (3 s after a redraw) and disappears without frames.
+- `cd relay && make test`: packet, requests (6 s validity, limit of 4), gate reading and the full path.
+- On the network (2026-10-29): the bridge sent ~22 frames/s to the Mac and ~33/s to the Pico.

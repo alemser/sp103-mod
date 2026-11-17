@@ -1,10 +1,10 @@
-# Ponte do VU (sp103-vu-relay). Compila no computador e instala pelo ssh em qualquer placa
-# Linux com o groove-detector. A arquitetura vem da própria placa.
+# VU bridge (sp103-vu-relay). Builds on the computer and installs over ssh on any Linux
+# board running the groove-detector. The architecture comes from the board itself.
 #
 #   make test
-#   make deploy HOST=usuario@ip      # instala ou atualiza
-#   make check HOST=usuario@ip       # a ponte responde?
-#   make status HOST=usuario@ip      # serviço e log
+#   make deploy HOST=user@ip         # install or update
+#   make check HOST=user@ip          # does the bridge answer?
+#   make status HOST=user@ip         # service and log
 
 BINARY := sp103-vu-relay
 GOARCH ?= arm64
@@ -14,7 +14,7 @@ ADDR = $(lastword $(subst @, ,$(HOST)))
 .PHONY: build test deploy check status need-host
 
 need-host:
-	@test -n "$(HOST)" || { echo "Falta a placa: make $(MAKECMDGOALS) HOST=usuario@ip"; exit 1; }
+	@test -n "$(HOST)" || { echo "Missing board: make $(MAKECMDGOALS) HOST=user@ip"; exit 1; }
 
 build:
 	@mkdir -p bin
@@ -23,11 +23,11 @@ build:
 test:
 	go vet ./... && go test ./...
 
-# O -t deixa o sudo pedir a senha nas placas que pedem.
+# The -t lets sudo ask for the password on boards that require it.
 deploy: need-host test
-	@ssh $(HOST) "getent group groove >/dev/null" || { echo "$(HOST) não tem o grupo groove: falta o groove-detector?"; exit 1; }
+	@ssh $(HOST) "getent group groove >/dev/null" || { echo "$(HOST) has no groove group: is the groove-detector missing?"; exit 1; }
 	@arch=$$(ssh $(HOST) "dpkg --print-architecture"); \
-	case "$$arch" in armhf) arch=arm;; arm64|amd64) ;; *) echo "Arquitetura desconhecida: $$arch"; exit 1;; esac; \
+	case "$$arch" in armhf) arch=arm;; arm64|amd64) ;; *) echo "Unknown architecture: $$arch"; exit 1;; esac; \
 	$(MAKE) --no-print-directory build GOARCH=$$arch && \
 	scp bin/$(BINARY)-linux-$$arch $(HOST):/tmp/$(BINARY).new
 	scp $(BINARY).service $(HOST):/tmp/$(BINARY).service

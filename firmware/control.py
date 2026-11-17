@@ -1,17 +1,17 @@
-"""Ajustes diretos do amp: um pedido só, e os cliques e códigos ficam por conta do Pico.
+"""Direct amp adjustments: a single request, and the Pico takes care of the clicks and codes.
 
-    POST /control?target=volume&dir=up       volume, bass, treble ou balance; dir = up ou down
-    POST /control?target=loudness&on=1       loudness ou speakers; on = 1 ou 0
-    POST /control?target=key&name=select_cd  uma tecla do controle (ir_codes.COMMANDS)
+    POST /control?target=volume&dir=up       volume, bass, treble or balance; dir = up or down
+    POST /control?target=loudness&on=1       loudness or speakers; on = 1 or 0
+    POST /control?target=key&name=select_cd  one remote key (ir_codes.COMMANDS)
 
-O caminho no amp (docs/api-estado.md):
-- bass e treble têm tecla própria no IR; balance, loudness e speakers só pelo botão Function
-  (panel.py), que anda pelo menu: Bass, Treble, Balance, Loudness, Speakers, tela normal;
-- dentro de um menu, volume + e − ajustam esse menu. Fora dele, ajustam o volume;
-- o primeiro toque no volume só abre a tela, então cada ajuste confere o valor e repete uma vez;
-- um clique no Function às vezes também escolhe PHONO: _goto() percebe e volta à entrada anterior.
+The path in the amp (docs/api-estado.md):
+- bass and treble have their own IR key; balance, loudness and speakers only through the Function button
+  (panel.py), which steps through the menu: Bass, Treble, Balance, Loudness, Speakers, normal screen;
+- inside a menu, volume + and − adjust that menu. Outside it, they adjust the volume;
+- the first volume press only opens the screen, so each adjustment checks the value and repeats once;
+- a Function click sometimes also selects PHONO: _goto() notices and goes back to the previous input.
 
-Roda igual no MicroPython (Pico) e no Python do computador (tools/test_control.py).
+Runs the same in MicroPython (Pico) and in the computer's Python (tools/test_control.py).
 """
 
 import asyncio
@@ -23,10 +23,10 @@ STEPPED = ("volume", "bass", "treble", "balance")
 SWITCHES = ("loudness", "speakers")
 KEYS = {"up": "volume_up", "down": "volume_down"}
 POLL_MS = 20
-SCREEN_MS = 900                 # o amp redesenha a tela bem antes disso
-SETTLE_MS = 300                 # o mesmo do perfil do groove-rig
-MENU_END_MS = 7500              # um menu fecha sozinho em cerca de 6 s
-MAX_PRESSES = 12                # duas voltas no menu
+SCREEN_MS = 900                 # the amp redraws the screen well before this
+SETTLE_MS = 300                 # the same as the groove-rig profile
+MENU_END_MS = 7500              # a menu closes by itself in about 6 s
+MAX_PRESSES = 12                # two laps around the menu
 
 
 async def _until(ready, ms):
@@ -61,7 +61,7 @@ class Control:
         self.remote.send(command)
 
     async def _goto(self, target):
-        """Clica no Function até abrir o menu. Se o amp pular de entrada, devolve a anterior."""
+        """Clicks Function until the menu opens. If the amp jumps to another input, restores the previous one."""
         st = self.state
         wanted = st.input_id
         for _ in range(MAX_PRESSES):
@@ -104,11 +104,11 @@ class Control:
                 raise ValueError("The amp didn't change " + target)
 
     async def run(self, query):
-        """Faz o pedido. Levanta ValueError, com o texto para mostrar, se não der."""
+        """Carries out the request. Raises ValueError, with the text to show, if it can't."""
         target = query.get("target")
         if self.busy:
             raise ValueError("Still working on the last change")
-        if target == "key":             # vale também em standby: é assim que o amp liga
+        if target == "key":             # also works in standby: that is how the amp turns on
             if query.get("name") not in ir_codes.COMMANDS:
                 raise ValueError("Unknown key")
             return await self._ir(query["name"])
@@ -127,7 +127,7 @@ class Control:
             self.busy = False
 
     async def handle(self, req, writer):
-        """Rota /control (ver web.Publisher)."""
+        """/control route (see web.Publisher)."""
         from web import reply, reply_json
         if req.path != "/control" or req.method != "POST":
             return await reply(writer, "404 Not Found", "text/plain", b"not found\n")

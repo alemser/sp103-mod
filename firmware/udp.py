@@ -1,13 +1,13 @@
-"""Ler um socket UDP sem esperar, e sem erro quando a fila está vazia (vu.py, info.py).
+"""Read a UDP socket without waiting, and without an error when the queue is empty (vu.py, info.py).
 
-O laço do proxy.py pergunta pelos pacotes umas 1000 vezes por segundo. Com o socket sem
-espera, um recv() com a fila vazia levanta OSError: cada erro é um objeto novo na memória,
-e o lixo faz o coletor rodar mais vezes (cada coleta para o laço por alguns ms). Com o
-poll, só se chama o recv() quando há pacote.
+proxy.py's loop asks for packets about 1000 times a second. On a non-blocking socket, recv() with
+an empty queue raises OSError: each error is a new object in memory, and the garbage makes the
+collector run more often (each collection stops the loop for a few ms). With poll, recv() is
+only called when there is a packet.
 
-    p = poller(sock)            # uma vez, ao abrir o socket
+    p = poller(sock)            # once, when the socket is opened
     while ready(p):
-        data = sock.recv(...)   # ainda dentro de um try (o Wi-Fi pode cair no meio)
+        data = sock.recv(...)   # still inside a try (Wi-Fi may drop midway)
 """
 
 try:
@@ -17,8 +17,8 @@ except ImportError:
 
 
 def poller(sock):
-    """O poll do socket, ou None se não der: o socket de mentira dos testes, ou o Python do
-    computador, que não tem o ipoll."""
+    """The socket's poll, or None when there is none: the tests' fake socket, or the computer's
+    Python, which has no ipoll."""
     try:
         p = select.poll()
         p.register(sock, select.POLLIN)
@@ -28,9 +28,9 @@ def poller(sock):
 
 
 def ready(p):
-    """Há pacote na fila? Sem poll, diz sempre que sim (o recv() decide, com erro)."""
+    """Is there a packet waiting? Without poll, always yes (recv() decides, with an error)."""
     if p is None:
         return True
-    for _ in p.ipoll(0):            # ipoll: o MicroPython não cria uma lista a cada chamada
+    for _ in p.ipoll(0):            # ipoll: MicroPython doesn't build a list on every call
         return True
     return False

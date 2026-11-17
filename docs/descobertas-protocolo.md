@@ -1,46 +1,47 @@
-# Como o controlador do SP103 fala com o LCD (descobertas das capturas)
+# How the SP103 controller talks to the LCD (findings from the captures)
 
-Fonte: capturas em `captures/`, decodificadas com `tools/hd44780_decode.py`.
+Source: captures in `captures/`, decoded with `tools/hd44780_decode.py`.
 
-## Volume: `01-volume-c.lac` (2026-10-23, um clique no knob)
+## Volume: `01-volume-c.lac` (2026-10-23, one click of the knob)
 
-Tela depois do clique:
+Screen after the click:
 
 ```
 ┌────────────────┐
 │Volume -28.75 dB│
-│■■■■■■■■■■      │   <- 10 caracteres personalizados (código 0x00) + 6 espaços
+│■■■■■■■■■■      │   <- 10 custom characters (code 0x00) + 6 spaces
 └────────────────┘
 ```
 
-- **Barramento de 8 bits.** Os pulsos do E duram de 10,5 a 22,5 µs (às vezes mais). É um controlador lento,
-  e 2 MHz de amostragem bastam (21 amostras no pulso mais curto).
-- **Lê o busy flag antes de cada comando e de cada caractere.** A sequência por caractere é:
-  1. leitura (RS=0, RW=1): busy flag + contador de endereço
-  2. comando `Set DDRAM addr` (posiciona na coluna)
-  3. leitura (RS=0, RW=1)
-  4. escrita do caractere (RS=1)
+- **8-bit bus.** E pulses last 10.5 to 22.5 µs (sometimes longer). It is a slow controller, and 2 MHz sampling is
+  enough (21 samples in the shortest pulse).
+- **Reads the busy flag before every command and every character.** The per-character sequence is:
+  1. read (RS=0, RW=1): busy flag + address counter
+  2. `Set DDRAM addr` command (moves to the column)
+  3. read (RS=0, RW=1)
+  4. character write (RS=1)
 
-  São cerca de 230 µs por caractere. Ele **não** usa o incremento automático do endereço: posiciona cada caractere.
-- **Um clique no volume redesenha as duas linhas inteiras:** 32 caracteres em cerca de 8,6 ms.
-- **Linha 1:** `Volume -28.75 dB`.
-- **Linha 2, ao mexer no volume:** uma **barra gráfica** com o caractere personalizado `0x00` (provavelmente
-  um bloco cheio). Comprimento: 10 de 16 colunas para -28,75 dB, ou seja, proporcional a (78,75 − 28,75) / 78,75 ≈ 63 %.
-  Na tela, a barra substitui o nome da entrada (confirmado visualmente).
-- **Leituras:** o busy flag nunca apareceu em 1 nesta captura. O LCD responde rápido em relação ao ritmo do controlador.
-- **Repouso:** entre as escritas, o RS fica em 1 e os dados ficam presos no último byte escrito (não voltam a 0xFF).
-  O E fica em 0.
+  That is about 230 µs per character. It does **not** use address auto-increment: it positions every character.
+- **One volume click redraws both lines in full:** 32 characters in about 8.6 ms.
+- **Line 1:** `Volume -28.75 dB`.
+- **Line 2, while changing the volume:** a **bar graph** made of custom character `0x00` (probably a full block).
+  Length: 10 of 16 columns for -28.75 dB, i.e. proportional to (78.75 − 28.75) / 78.75 ≈ 63 %. On screen, the bar
+  replaces the input name (confirmed visually).
+- **Reads:** the busy flag never showed up as 1 in this capture. The LCD responds quickly relative to the controller's
+  pace.
+- **Idle:** between writes, RS stays at 1 and the data lines stay latched at the last byte written (they do not return
+  to 0xFF). E stays at 0.
 
-### O que isso significa para o projeto
-- **O Pico final precisa responder às leituras** (RW = 1) do controlador, pelo menos com o busy flag = 0.
-  Se não responder, o controlador pode travar esperando.
-- **A opção "cortar só o pino E" é improvável**, porque os dados não ficam livres no repouso.
-  O caminho realista é interceptar os sinais (cortar os pinos 4 a 14) ou desoldar o LCD. Foi feito: o LCD foi
-  dessoldado em 2026-10-29 (`proxy-ligacao.md`).
-- **O caractere personalizado 0x00** é definido em algum momento (provavelmente ao ligar).
-  A captura de inicialização deve mostrar os comandos `Set CGRAM addr` com o desenho dele.
+### What this means for the project
+- **The final Pico must answer the controller's reads** (RW = 1), at least with busy flag = 0. If it does not, the
+  controller may hang waiting.
+- **The "cut only the E pin" option is unlikely**, because the data lines are not free when idle. The realistic path
+  is to intercept the signals (cut pins 4 to 14) or desolder the LCD. Done: the LCD was desoldered on 2026-10-29
+  (`proxy-ligacao.md`).
+- **Custom character 0x00** is defined at some point (probably at power-on). The power-on capture should show the
+  `Set CGRAM addr` commands with its pattern.
 
-## Entrada Phono: `04-phono-b.lac` (2026-10-23)
+## Phono input: `04-phono-b.lac` (2026-10-23)
 
 ```
 ┌────────────────┐
@@ -49,15 +50,15 @@ Tela depois do clique:
 └────────────────┘
 ```
 
-- Ao trocar de entrada, o controlador também **redesenha as duas linhas inteiras** (cerca de 8,5 ms),
-  com o mesmo padrão (leitura → endereço → leitura → caractere).
-- Linha 2 = nome da entrada, completado com espaços até as 16 colunas.
+- When changing input, the controller also **redraws both lines in full** (about 8.5 ms), with the same pattern
+  (read → address → read → character).
+- Line 2 = input name, padded with spaces to 16 columns.
 
-## Entradas: `05-tuner` a `09-dab` (2026-10-23)
+## Inputs: `05-tuner` to `09-dab` (2026-10-23)
 
-Mesmo padrão do Phono: as duas linhas são redesenhadas, e a linha 2 traz o nome da entrada completado com espaços.
+Same pattern as Phono: both lines are redrawn, and line 2 holds the input name padded with spaces.
 
-| Botão | Linha 2 |
+| Button | Line 2 |
 |---|---|
 | Phono | `PHONO` |
 | Tuner | `TUNER` |
@@ -66,18 +67,19 @@ Mesmo padrão do Phono: as duas linhas são redesenhadas, e a linha 2 traz o nom
 | DVD | `DVD` |
 | DAB | `DAB` |
 
-## Ao ligar: `03-liga.lac` (2026-10-23)
+## At power-on: `03-liga.lac` (2026-10-23)
 
-Capturado com **pattern trigger** E=1, RS=0, RW=0 (canais 1–3, padrão `100`), a 1 MHz, com jumper entre GP0 e GP1 do Pico.
-Com o edge trigger não funciona: durante o reset o controlador deixa E, RS e RW em 1 (`00-amp-onoff.lac`).
+Captured with a **pattern trigger** E=1, RS=0, RW=0 (channels 1–3, pattern `100`), at 1 MHz, with a jumper between the
+Pico's GP0 and GP1. The edge trigger does not work: during reset the controller leaves E, RS and RW at 1
+(`00-amp-onoff.lac`).
 
-Sequência:
-1. `0x01` Clear → `0x06` Entry mode (incrementa) → `0x0C` Display ON (sem cursor) → `0x38` Function set
-   (8 bits, 2 linhas, 5x8). O Function set vem **por último**, o que não é comum, mas funciona porque o LCD
-   já liga no modo de 8 bits.
-2. `0x40` Set CGRAM addr 0 e mais **64 bytes**: os 8 caracteres personalizados (abaixo).
-3. **Tudo se repete cerca de 64 ms depois** (init + CGRAM de novo).
-4. As duas linhas são preenchidas com espaços (posicionando cada caractere) e depois vem a tela de boas-vindas:
+Sequence:
+1. `0x01` Clear → `0x06` Entry mode (increment) → `0x0C` Display ON (no cursor) → `0x38` Function set
+   (8 bits, 2 lines, 5x8). Function set comes **last**, which is unusual, but it works because the LCD already powers
+   up in 8-bit mode.
+2. `0x40` Set CGRAM addr 0 followed by **64 bytes**: the 8 custom characters (below).
+3. **Everything repeats about 64 ms later** (init + CGRAM again).
+4. Both lines are filled with spaces (positioning each character) and then comes the welcome screen:
 
 ```
 ┌────────────────┐
@@ -86,72 +88,72 @@ Sequência:
 └────────────────┘
 ```
 
-A captura (190 ms) termina na tela de boas-vindas. A passagem para a tela normal acontece depois.
+The capture (190 ms) ends on the welcome screen. The change to the normal screen happens later.
 
-### Telas seguintes: `03-liga-telas.lac` (burst, 10 trechos de 19 ms a 1 MHz)
+### Following screens: `03-liga-telas.lac` (burst, 10 segments of 19 ms at 1 MHz)
 
-Capturado armando o edge trigger (E) assim que "ACOUSTIC SOLUTIONS" apareceu, e girando o volume depois para completar
-os trechos. O fio do D1 estava sem contato, mas o texto se recupera pelo contexto (o bit 1 foi lido sempre como 0).
+Captured by arming the edge trigger (E) as soon as "ACOUSTIC SOLUTIONS" appeared, then turning the volume to fill the
+remaining segments. The D1 wire had no contact, but the text can be recovered from context (bit 1 was always read as 0).
 
-Sequência completa ao ligar (cerca de 4 s no total):
+Full power-on sequence (about 4 s in total):
 
 ```
 ┌────────────────┐     ┌────────────────┐     ┌────────────────┐
 │    ACOUSTIC    │ --> │Amplifier SP103 │ --> │Volume -28.75 dB│
-│    SOLUTIONS   │     │ SW version 1.0 │     │DAB             │   <- última entrada usada
+│    SOLUTIONS   │     │ SW version 1.0 │     │DAB             │   <- last input used
 └────────────────┘     └────────────────┘     └────────────────┘
 ```
 
-A versão `1.0` foi confirmada na tela pelo dono.
-Depois de mexer no volume, a linha 2 vira a barra e, um tempo depois, **volta sozinha** ao nome da entrada.
+Version `1.0` was confirmed on screen by the owner.
+After changing the volume, line 2 becomes the bar and, a while later, **goes back by itself** to the input name.
 
-Observação: o programa não salvou `LoopCount` no arquivo `.lac` desta captura em burst. O script detecta o burst
-pelo tamanho dos dados.
+Note: the software did not save `LoopCount` in the `.lac` file for this burst capture. The script detects the burst
+from the data size.
 
-### Caracteres personalizados (CGRAM)
+### Custom characters (CGRAM)
 
-| Código | Desenho (8 linhas, 5 pontos) | Uso |
+| Code | Pattern (8 rows, 5 dots) | Use |
 |---|---|---|
-| 0x00 | `00 1F 11 11 11 11 1F 00`: **caixa vazia** (contorno) | barra de volume |
-| 0x01 | só a última linha cheia | nível 1/7 |
-| 0x02 | 2 linhas de baixo | nível 2/7 |
-| 0x03 | 3 linhas | nível 3/7 |
-| 0x04 | 4 linhas | nível 4/7 |
-| 0x05 | 5 linhas | nível 5/7 |
-| 0x06 | 6 linhas | nível 6/7 |
-| 0x07 | 7 linhas (bloco quase cheio) | nível 7/7 |
+| 0x00 | `00 1F 11 11 11 11 1F 00`: **empty box** (outline) | volume bar |
+| 0x01 | only the bottom row filled | level 1/7 |
+| 0x02 | bottom 2 rows | level 2/7 |
+| 0x03 | 3 rows | level 3/7 |
+| 0x04 | 4 rows | level 4/7 |
+| 0x05 | 5 rows | level 5/7 |
+| 0x06 | 6 rows | level 6/7 |
+| 0x07 | 7 rows (almost full block) | level 7/7 |
 
-Os códigos 0x01–0x07 formam "barras verticais" crescentes, provavelmente usadas nos menus do Function
-(grave/agudo?) ou em alguma animação. Ainda não vimos onde.
+Codes 0x01–0x07 form rising "vertical bars", probably used in the Function menus (bass/treble?) or in some animation.
+We have not seen where yet.
 
-## Function, 1º toque: `13-function-1.lac` (2026-10-23)
+## Function, 1st press: `13-function-1.lac` (2026-10-23)
 
-Fios com mau contato nesta captura: RW e D4 sempre em 0, e o RS se soltou no começo. Mesmo assim, o padrão fixo
-(leitura → endereço → leitura → caractere) permite separar endereço e dado em grupos de 4 pulsos, e o D4 se recupera
-pelo contexto. Reconstrução (falta confirmar na tela):
+Wires with poor contact in this capture: RW and D4 always at 0, and RS came loose at the start. Even so, the fixed
+pattern (read → address → read → character) makes it possible to separate address and data in groups of 4 pulses, and
+D4 can be recovered from context. Reconstruction (still to be confirmed on screen):
 
 ```
 ┌────────────────┐
 │Bass -10 dB     │
-│  ■■■■■<>       │   <- barra bipolar: "<>" no centro (colunas 7–8), 5 caixas à esquerda = -10 dB
+│  ■■■■■<>       │   <- bipolar bar: "<>" in the centre (columns 7–8), 5 boxes on the left = -10 dB
 └────────────────┘
 ```
 
-Segunda gravação do mesmo toque (só o RW falhou), com outro valor de grave:
+Second recording of the same press (only RW failed), with a different bass value:
 
 ```
 ┌────────────────┐
-│Bass   2 dB     │   <- valor alinhado à direita nas colunas 5–7 ("-10", "  2"), sem sinal de "+"
-│       <>■      │   <- 1 caixa à direita do centro = +2 dB
+│Bass   2 dB     │   <- value right-aligned in columns 5–7 ("-10", "  2"), no "+" sign
+│       <>■      │   <- 1 box to the right of the centre = +2 dB
 └────────────────┘
 ```
 
-- A linha 2 é escrita **a partir do centro**: colunas 7, 8 ("<", ">"), 9…15 e depois 0…6.
-- Cada caixa (caractere 0x00) parece valer 2 dB, compatível com os passos de grave do PT2314.
+- Line 2 is written **from the centre outwards**: columns 7, 8 ("<", ">"), 9…15 and then 0…6.
+- Each box (character 0x00) seems to be worth 2 dB, consistent with the PT2314 bass steps.
 
-## Function, todos os menus: `13-function-todos.lac` (burst, 2026-10-23)
+## Function, all menus: `13-function-todos.lac` (burst, 2026-10-23)
 
-Decodificado com `--sem-rw` (o RW falhava de vez em quando). São 6 cliques no Function até voltar à tela normal:
+Decoded with `--sem-rw` (RW dropped out now and then). It takes 6 Function clicks to get back to the normal screen:
 
 ```
 1 ┌────────────────┐  2 ┌────────────────┐  3 ┌────────────────┐
@@ -164,87 +166,88 @@ Decodificado com `--sem-rw` (o RW falhava de vez em quando). São 6 cliques no F
   └────────────────┘    └────────────────┘    └────────────────┘
 ```
 
-- Bass e Treble: valor numérico alinhado à direita (3 caracteres) + barra bipolar com "<>" no centro.
-- Balance: "<level>" quando centrado (falta ver como fica fora do centro).
-- Loudness e Speakers: duas opções, e a escolhida fica entre "< >".
-- Os trechos 7 a 10 são cliques no volume (com o D4 falhando: "Foleme" = "Volume").
+- Bass and Treble: right-aligned numeric value (3 characters) + bipolar bar with "<>" in the centre.
+- Balance: "<level>" when centred (still to see how it looks off-centre).
+- Loudness and Speakers: two options, with the selected one between "< >".
+- Segments 7 to 10 are volume clicks (with D4 failing: "Foleme" = "Volume").
 
-## Balance girando o knob: `15-balance.lac` (burst, 2026-10-23)
+## Balance while turning the knob: `15-balance.lac` (burst, 2026-10-23)
 
-Cada clique do knob redesenha a tela inteira, em passos de **1,25 dB** (o atenuador de alto-falante do PT2314):
+Each knob click redraws the whole screen, in steps of **1.25 dB** (the PT2314 speaker attenuator):
 
 ```
 ┌────────────────┐        ┌────────────────┐
-│Balance -5.00 dB│  ...   │Balance-10.00 dB│   <- com dois dígitos, o espaço depois de "Balance" some
-│       <>■      │        │       <>■■     │   <- 1 caixa a cada 5 dB, deste lado do centro
+│Balance -5.00 dB│  ...   │Balance-10.00 dB│   <- with two digits, the space after "Balance" disappears
+│       <>■      │        │       <>■■     │   <- 1 box per 5 dB, on this side of the centre
 └────────────────┘        └────────────────┘
 ```
 
-Os 10 trechos foram -1,25 → -12,50 dB, sempre na mesma direção. Ordem de escrita: linha 1 inteira, depois
-"<" ">" (colunas 7–8), colunas 0–6 da linha 2 e por fim colunas 9–15.
-Falta ver o outro lado: de que lado a barra fica, e se o número muda de sinal ou ganha L/R.
+The 10 segments went -1.25 → -12.50 dB, always in the same direction. Write order: all of line 1, then "<" ">"
+(columns 7–8), columns 0–6 of line 2 and finally columns 9–15.
+Still to see the other side: which side the bar is on, and whether the number changes sign or gains L/R.
 
-## Controle remoto e desligar (observado pelo dono, 2026-10-23)
+## Remote control and power-off (observed by the owner, 2026-10-23)
 
-- O controle remoto faz exatamente o mesmo que os botões do painel, com as mesmas telas.
-- Ao desligar, o display fica **em branco**. Correção de 2026-10-29, pelo registro do barramento do Pico: o
-  controlador escreve espaços nas 32 posições (DDRAM 0x00–0x0F e 0x40–0x4F, sem "Clear display") e para. Por isso
-  parecia que ele não escrevia nada. Ao sair do standby, ele desenha direto a tela normal (`Volume … / DAB`), sem
-  "Clear display" e sem "ACOUSTIC SOLUTIONS". Ao receber energia da tomada, a tela fica em branco por uns 70 ms, mas
-  depois de um "Clear display" (`03-liga.lac`): é assim que o Pico separa os dois brancos (`amp_state.py`,
+- The remote does exactly the same as the panel buttons, with the same screens.
+- On power-off, the display goes **blank**. Correction from 2026-10-29, from the Pico's bus log: the controller writes
+  spaces to all 32 positions (DDRAM 0x00–0x0F and 0x40–0x4F, with no "Clear display") and stops. That is why it seemed
+  to write nothing. Coming out of standby, it draws the normal screen directly (`Volume … / DAB`), with no "Clear
+  display" and no "ACOUSTIC SOLUTIONS". When it gets mains power, the screen is blank for about 70 ms, but after a
+  "Clear display" (`03-liga.lac`): this is how the Pico tells the two blanks apart (`amp_state.py`,
   `power: "standby"`).
 
-## Balance para o outro lado: `15-balance-b.lac` (burst, 2026-10-23)
+## Balance to the other side: `15-balance-b.lac` (burst, 2026-10-23)
 
-Os mesmos números negativos (-1,25 → -12,50 dB). Só a **barra** muda de lado e cresce para a **esquerda** do "<>":
+The same negative numbers (-1.25 → -12.50 dB). Only the **bar** switches sides and grows to the **left** of the "<>":
 
 ```
 ┌────────────────┐
-│Balance-10.00 dB│   <- igual ao outro lado: a linha 1 não diz qual canal está atenuado
+│Balance-10.00 dB│   <- same as the other side: line 1 does not say which channel is attenuated
 │     ■■<>       │
 └────────────────┘
 ```
 
-## Elétrica das portas e leitura do busy flag (2026-10-24)
+## Port electrics and busy flag reads (2026-10-24)
 
-Medido com o multímetro (amp em standby, iguais com o amp ligado) e com o Pico, nos testes da escrita sem corte
-(`historico/opcoes-intercepcao.md`; as ferramentas estão no histórico do git).
+Measured with the multimeter (amp in standby, same values with the amp on) and with the Pico, during the tests of
+writing without cutting (`historico/opcoes-intercepcao.md`; the tools are in the git history).
 
-| Fio | Porta | Repouso | Quando vai a 1 | Medição |
+| Wire | Port | Idle | When driven to 1 | Measurement |
 |---|---|---|---|---|
-| RS | P3.0 | 1 | fraco (pull-up do 8051) | 4,94 V; 0,168 mA para o GND |
-| RW | P3.1 | 0, com força | **fraco**: o Pico o puxou para 0 com só 2 mA | 0,00 V; 0,057 mA |
-| E | P2.7 | 0, com força | não testado (o Pico nunca levanta o E) | 0,03 V; 0,306 mA |
-| D0–D7 | P0 | último byte | só pelos pull-ups de 4,7 kΩ (R907/R908) | ~1 mA ao puxar um 1 para 0 |
+| RS | P3.0 | 1 | weak (8051 pull-up) | 4.94 V; 0.168 mA to GND |
+| RW | P3.1 | 0, strongly | **weak**: the Pico pulled it to 0 with only 2 mA | 0.00 V; 0.057 mA |
+| E | P2.7 | 0, strongly | not tested (the Pico never raises E) | 0.03 V; 0.306 mA |
+| D0–D7 | P0 | last byte | only via the 4.7 kΩ pull-ups (R907/R908) | ~1 mA when pulling a 1 to 0 |
 
-- **Para ler o busy flag, o controlador solta só o D7.** Os outros fios continuam presos no último byte escrito. Quando
-  o Pico transformou uma leitura em escrita (puxando o RW), o LCD recebeu 0xD6: o caractere anterior, 'V' (0x56), com o
-  bit 7 ligado. Provavelmente o firmware faz `SETB P0.7` e testa só esse bit.
-- **Busy flag em 1 → ele pergunta de novo.** Com o bit 7 em 1 ("ocupado"), o controlador fez outra leitura e depois
-  seguiu normal: não há limite de tempo nem erro visível.
-- **RW sobe ~21 µs antes do E** nas leituras; os pulsos do E duram 10 µs ou mais.
-- **Redesenho atrasado (não confirmado):** num registro, depois de cada evento (volume ou troca de entrada), o
-  controlador redesenhou na hora e **de novo, 2 a 6 s depois**. Como o `/bus` não registra botões, a segunda tela pode
-  ter vindo de um segundo toque. Com o proxy isso não importa mais: cada tela é desenhada com os nomes certos.
-- **O LCD ignora o comando 0x00** (teste 2): ele não muda de endereço nem de modo. Trocando de TUNER para DAB com o
-  0xC0 zerado, a tela mostrou "TAB".
-- **Na subida do E, RS, RW e os dados já estão no lugar** (comandos e caracteres), e assim ficam até a descida.
-- **Ruído no E com fios longos:** com fios de ~20 cm soldados nas pontas dos pinos, a borda do E "treme" (pulsos falsos de
-  até ~1 µs, raros também nas capturas). O sniffer agora só aceita pulsos de 3 µs ou mais.
+- **To read the busy flag, the controller releases only D7.** The other wires stay latched at the last byte written.
+  When the Pico turned a read into a write (by pulling RW), the LCD received 0xD6: the previous character, 'V' (0x56),
+  with bit 7 set. The firmware probably does `SETB P0.7` and tests only that bit.
+- **Busy flag at 1 → it asks again.** With bit 7 at 1 ("busy"), the controller did another read and then carried on
+  normally: there is no timeout and no visible error.
+- **RW rises ~21 µs before E** on reads; E pulses last 10 µs or more.
+- **Delayed redraw (not confirmed):** in one log, after each event (volume or input change), the controller redrew
+  immediately and **again, 2 to 6 s later**. Since `/bus` does not log buttons, the second screen may have come from a
+  second press. With the proxy this no longer matters: every screen is drawn with the right names.
+- **The LCD ignores command 0x00** (test 2): it changes neither address nor mode. Switching from TUNER to DAB with 0xC0
+  zeroed, the screen showed "TAB".
+- **On the rising edge of E, RS, RW and the data are already in place** (commands and characters), and stay that way
+  until the falling edge.
+- **Noise on E with long wires:** with ~20 cm wires soldered to the pin ends, the E edge "shakes" (false pulses of up
+  to ~1 µs, also rare in the captures). The sniffer now only accepts pulses of 3 µs or more.
 
-## Com o Pico como proxy (2026-10-29)
+## With the Pico as proxy (2026-10-29)
 
-Com o display desligado do controlador, só o Pico responde às leituras do busy flag (`firmware/busy.py`):
+With the display disconnected from the controller, only the Pico answers the busy flag reads (`firmware/busy.py`):
 
-- **Ao ligar, o controlador espera o Pico.** O Pico leva alguns milissegundos para carregar o programa de resposta;
-  nesse tempo, o controlador leu "ocupado" ~900 vezes seguidas e depois seguiu normal, sem erro. Confirma que não há
-  limite de tempo.
-- **Depois da primeira resposta "livre", nenhuma leitura deu "ocupado".** O D7 puxado para 0 na subida do E chega a
-  tempo, e a sequência leitura → escrita continua igual à das capturas.
-- **O comando "display on/off" (0x08–0x0F)** era lido como "entry mode" pelo modelo (`hd44780.py`) e pelo decodificador.
-  Corrigido; ele não muda o texto.
+- **At power-on, the controller waits for the Pico.** The Pico takes a few milliseconds to load the answering
+  program; during that time, the controller read "busy" ~900 times in a row and then carried on normally, with no
+  error. This confirms there is no timeout.
+- **After the first "free" answer, no read returned "busy".** D7 pulled to 0 on the rising edge of E arrives in time,
+  and the read → write sequence stays the same as in the captures.
+- **The "display on/off" command (0x08–0x0F)** was read as "entry mode" by the model (`hd44780.py`) and by the
+  decoder. Fixed; it does not change the text.
 
 ## Status
 
-**Fase de captura concluída (2026-10-23).** Todas as telas do controlador estão registradas acima. O Pico reproduz
-essas telas no display do amp, com os nomes personalizados, desde 2026-10-29.
+**Capture phase complete (2026-10-23).** All of the controller's screens are recorded above. The Pico has reproduced
+these screens on the amp's display, with the custom names, since 2026-10-29.

@@ -1,7 +1,7 @@
-"""Bancada, etapa 1: mostra no display reserva todas as telas do SP103, uma a cada 2 s.
+"""Bench, stage 1: shows every SP103 screen on the spare display, one every 2 s.
 
-Rodar pelo computador:  .venv/bin/mpremote run firmware/demo_telas.py
-(antes, copiar os módulos: .venv/bin/mpremote cp firmware/lcd1602.py firmware/sp103_screens.py :)
+Run from the computer:  .venv/bin/mpremote run firmware/demo_telas.py
+(first copy the modules: .venv/bin/mpremote cp firmware/lcd1602.py firmware/sp103_screens.py :)
 """
 
 import time
@@ -11,8 +11,8 @@ from lcd1602 import Lcd1602
 lcd = Lcd1602()
 
 SCREENS = [
-    ("boas-vindas", s.boot()),
-    ("modelo", s.about()),
+    ("welcome", s.boot()),
+    ("model", s.about()),
     ("normal", s.normal(-28.75, "PHONO")),
     ("volume", s.volume_bar(-28.75)),
     ("bass", s.tone("Bass", 2)),
@@ -29,7 +29,7 @@ SCREENS = [
 while True:
     for name, (l1, l2) in SCREENS:
         print(name)
-        # Reinicia a cada tela: se um mau contato embaralhar o display, a próxima tela já sai certa.
+        # Restarts on every screen: if a bad contact garbles the display, the next screen comes out right.
         lcd.reset()
         for code, rows in enumerate(s.CGRAM):
             lcd.define_char(code, rows)

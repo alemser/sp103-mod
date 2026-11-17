@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
-Decodificador do barramento HD44780 (LCD 16x2) a partir de uma captura do
-LogicAnalyzer (gusmanb).
+Decoder for the HD44780 bus (16x2 LCD) from a LogicAnalyzer (gusmanb)
+capture.
 
-Uso:
+Usage:
     python3 tools/hd44780_decode.py captura.lac
     python3 tools/hd44780_decode.py captura.csv --freq 10000000
 
-O que ele faz:
-  1. Procura cada borda de DESCIDA do sinal E (é nela que o LCD "lê" o byte).
-  2. Nesse instante, lê RS, RW e D0..D7.
-       RS=0 -> comando     RS=1 -> caractere
-       RW=1 -> leitura (o controlador está lendo o LCD, normalmente o busy flag)
-  3. Traduz cada comando para texto e mantém uma cópia da memória do LCD
-     (DDRAM), para mostrar como a tela fica depois de cada bloco de escrita.
+What it does:
+  1. Finds every FALLING edge of the E signal (that is when the LCD "reads" the byte).
+  2. At that instant, reads RS, RW and D0..D7.
+       RS=0 -> command     RS=1 -> character
+       RW=1 -> read (the controller is reading the LCD, usually the busy flag)
+  3. Turns each command into text and keeps a copy of the LCD's memory
+     (DDRAM), to show what the screen looks like after each burst of writes.
 
-Ligação esperada (canal do analisador -> sinal do LCD), igual ao docs/ligacao-analisador.md:
+Expected wiring (analyzer channel -> LCD signal), as in docs/ligacao-analisador.md:
     CH1=E  CH2=RS  CH3=RW  CH4..CH11=D0..D7
-Se você deu nomes aos canais no programa (E, RS, RW, D0..D7), os nomes têm prioridade.
+If you named the channels in the program (E, RS, RW, D0..D7), the names take priority.
 """
 
 import argparse
@@ -26,32 +26,32 @@ import csv
 import json
 import sys
 
-# Ligação padrão: número do canal (1 = Channel 1) para cada sinal.
+# Default wiring: channel number (1 = Channel 1) for each signal.
 DEFAULT_MAP = {"E": 1, "RS": 2, "RW": 3,
                "D0": 4, "D1": 5, "D2": 6, "D3": 7,
                "D4": 8, "D5": 9, "D6": 10, "D7": 11}
 
 SIGNALS = list(DEFAULT_MAP)
 
-# Silêncio no barramento maior que isso (em µs) encerra um "bloco" de escrita.
+# Bus silence longer than this (in µs) ends a "burst" of writes.
 BURST_GAP_US = 2000
 
 
 # ---------------------------------------------------------------------------
-# Leitura dos arquivos
+# Reading the files
 # ---------------------------------------------------------------------------
 
 def load_lac(path):
-    """Arquivo .lac = JSON salvo pelo LogicAnalyzer (File > Save)."""
+    """.lac file = JSON saved by the LogicAnalyzer (File > Save)."""
     with open(path, encoding="utf-8-sig") as f:
         doc = json.load(f)
     settings = doc["Settings"]
     freq = settings["Frequency"]
     pre = settings.get("PreTriggerSamples", 0)
-    # Modo burst: a captura é feita de vários trechos de PostTriggerSamples amostras,
-    # cada um começando num novo trigger. Os trechos ficam colados um no outro.
-    # O LoopCount nem sempre vem salvo no arquivo; então também detectamos o burst
-    # pelo tamanho: mais amostras do que presamples + postsamples.
+    # Burst mode: the capture is made of several stretches of PostTriggerSamples samples,
+    # each starting at a new trigger. The stretches are stuck one after the other.
+    # LoopCount is not always saved in the file, so burst mode is also detected
+    # by size: more samples than presamples + postsamples.
     post = settings["PostTriggerSamples"]
     burst = 0
     by_number, by_name = {}, {}
@@ -60,7 +60,7 @@ def load_lac(path):
         if raw is None:
             continue
         samples = base64.b64decode(raw) if isinstance(raw, str) else bytes(raw)
-        number = ch["ChannelNumber"] + 1          # no arquivo começa em 0
+        number = ch["ChannelNumber"] + 1          # starts at 0 in the file
         by_number[number] = samples
         if len(samples) > pre + post:
             burst = post
@@ -71,7 +71,7 @@ def load_lac(path):
 
 
 def load_csv(path):
-    """Arquivo .csv = File > Export. Não tem frequência, só 0/1 por coluna."""
+    """.csv file = File > Export. Has no frequency, only 0/1 per column."""
     with open(path, newline="", encoding="utf-8-sig") as f:
         rows = list(csv.reader(f))
     header = [h.strip() for h in rows[0]]
@@ -80,8 +80,8 @@ def load_csv(path):
     for i, h in enumerate(header):
         samples = bytes(int(v) for v in cols[i])
         if h.upper().startswith("CHANNEL "):
-            # O CSV numera pela ordem das colunas, não pelo canal físico.
-            # Funciona se os canais marcados forem 1..11 em sequência.
+            # The CSV numbers by column order, not by physical channel.
+            # Works if the selected channels are 1..11 in sequence.
             by_number[int(h.split()[1])] = samples
         else:
             by_name[h.upper()] = samples
@@ -98,12 +98,12 @@ def pick_signals(by_number, by_name):
             sig[s] = by_number[DEFAULT_MAP[s]]
     missing = [s for s in ("E", "RS") if s not in sig]
     if missing:
-        sys.exit(f"Faltam os sinais {missing} na captura.")
+        sys.exit(f"Signals {missing} are missing from the capture.")
     return sig
 
 
 # ---------------------------------------------------------------------------
-# Tradução dos comandos
+# Translating the commands
 # ---------------------------------------------------------------------------
 
 def describe_command(b):
@@ -113,18 +113,18 @@ def describe_command(b):
         return f"Set CGRAM addr 0x{b & 0x3F:02X}"
     if b & 0x20:
         return ("Function set: " + ("8 bits" if b & 0x10 else "4 bits") + ", "
-                + ("2 linhas" if b & 0x08 else "1 linha") + ", "
+                + ("2 lines" if b & 0x08 else "1 line") + ", "
                 + ("5x10" if b & 0x04 else "5x8"))
     if b & 0x10:
-        return ("Shift " + ("display" if b & 0x08 else "cursor") + " para a "
-                + ("direita" if b & 0x04 else "esquerda"))
+        return ("Shift " + ("display" if b & 0x08 else "cursor") + " to the "
+                + ("right" if b & 0x04 else "left"))
     if b & 0x08:
         return ("Display " + ("ON" if b & 0x04 else "OFF")
                 + ", cursor " + ("ON" if b & 0x02 else "OFF")
-                + ", pisca " + ("ON" if b & 0x01 else "OFF"))
+                + ", blink " + ("ON" if b & 0x01 else "OFF"))
     if b & 0x04:
-        return ("Entry mode: " + ("incrementa" if b & 0x02 else "decrementa")
-                + (", desloca display" if b & 0x01 else ""))
+        return ("Entry mode: " + ("increment" if b & 0x02 else "decrement")
+                + (", shift display" if b & 0x01 else ""))
     if b & 0x02:
         return "Return home"
     if b & 0x01:
@@ -133,13 +133,13 @@ def describe_command(b):
 
 
 class Lcd:
-    """Cópia simplificada da memória do HD44780, para reconstruir a tela."""
+    """Simplified copy of the HD44780's memory, to rebuild the screen."""
 
     def __init__(self):
-        self.ddram = [0x20] * 0x80      # 0x00-0x27 = linha 1, 0x40-0x67 = linha 2
+        self.ddram = [0x20] * 0x80      # 0x00-0x27 = line 1, 0x40-0x67 = line 2
         self.addr = 0
         self.inc = 1
-        self.shift = 0                  # deslocamento do display (comando shift)
+        self.shift = 0                  # display offset (shift command)
         self.cgram_mode = False
         self.eight_bit = True
 
@@ -154,7 +154,7 @@ class Lcd:
             if b & 0x08:
                 self.shift += -1 if b & 0x04 else 1
         elif b & 0x08:
-            pass                              # Display on/off: não muda o texto
+            pass                              # Display on/off: doesn't change the text
         elif b & 0x04:
             self.inc = 1 if b & 0x02 else -1
         elif b & 0x02:
@@ -165,10 +165,10 @@ class Lcd:
 
     def data(self, b):
         if self.cgram_mode:
-            return                      # caractere personalizado: ignoramos
+            return                      # custom character: ignored
         self.ddram[self.addr] = b
         a = self.addr + self.inc
-        # O HD44780 pula de 0x27 para 0x40 e de 0x67 para 0x00.
+        # The HD44780 jumps from 0x27 to 0x40 and from 0x67 to 0x00.
         if a == 0x28:
             a = 0x40
         elif a == 0x68:
@@ -191,7 +191,7 @@ class Lcd:
 
 
 # ---------------------------------------------------------------------------
-# Decodificação
+# Decoding
 # ---------------------------------------------------------------------------
 
 def decode(sig, freq, pre):
@@ -215,7 +215,7 @@ def decode(sig, freq, pre):
         if e[i] and not e[i - 1]:
             rise = i
         elif e[i - 1] and not e[i]:
-            j = i - 1                   # última amostra com E alto: dados estáveis
+            j = i - 1                   # last sample with E high: data stable
             if rise is not None:
                 widths.append(i - rise)
             rs = sig["RS"][j]
@@ -225,9 +225,9 @@ def decode(sig, freq, pre):
             events.append(((i - pre) * us, rs, rw, full, nib))
             falls.append(i)
 
-    # Repouso: como cada fio fica quando o controlador NÃO está escrevendo.
-    # Olhamos o meio de cada intervalo longo (> 200 µs) sem pulsos no E,
-    # inclusive antes do primeiro pulso e depois do último.
+    # Idle: how each wire sits when the controller is NOT writing.
+    # Looks at the middle of each long gap (> 200 µs) without pulses on E,
+    # including before the first pulse and after the last.
     idle = []
     min_gap = int(200 / us)
     bounds = [0] + falls + [n - 1]
@@ -241,37 +241,37 @@ def decode(sig, freq, pre):
 
 def report_idle(idle):
     if not idle:
-        print("Repouso: não houve intervalos longos sem escrita nesta captura.\n")
+        print("Idle: no long gaps without writes in this capture.\n")
         return
-    print(f"Repouso (nível dos fios entre as escritas, {len(idle)} intervalos):")
+    print(f"Idle (wire levels between writes, {len(idle)} gaps):")
     counts = {}
     for state in idle:
         counts[state] = counts.get(state, 0) + 1
     for (e, rs, rw, d), c in sorted(counts.items(), key=lambda kv: -kv[1]):
-        print(f"  E={e} RS={rs} RW={rw} dados=0x{d:02X}  ({c}x)")
+        print(f"  E={e} RS={rs} RW={rw} data=0x{d:02X}  ({c}x)")
     datas = {d for (_, _, _, d) in idle}
     if datas == {0xFF}:
-        print("  -> os dados ficam todos em 1 (soltos) no repouso.")
+        print("  -> the data lines all sit at 1 (floating) when idle.")
     else:
-        print("  -> os dados NÃO voltam a 0xFF no repouso (ficam com algum valor).")
+        print("  -> the data lines do NOT go back to 0xFF when idle (they hold some value).")
     print()
 
 
 def run(events, widths, us, show_all, burst=0):
     lcd = Lcd()
     if not events:
-        print("Nenhuma borda de descida no E. Confira a ligação do CH1 (E).")
+        print("No falling edges on E. Check the CH1 (E) wiring.")
         return
 
     reads = sum(1 for ev in events if ev[2])
-    print(f"Bordas de descida no E: {len(events)}   leituras (RW=1): {reads}")
+    print(f"Falling edges on E: {len(events)}   reads (RW=1): {reads}")
     if widths:
-        print(f"Largura do pulso E: mín {min(widths) * us:.2f} µs, "
-              f"máx {max(widths) * us:.2f} µs "
-              f"({min(widths)} amostras no mais curto)")
+        print(f"E pulse width: min {min(widths) * us:.2f} µs, "
+              f"max {max(widths) * us:.2f} µs "
+              f"({min(widths)} samples in the shortest)")
         if min(widths) < 3:
-            print("  ATENÇÃO: o pulso mais curto tem menos de 3 amostras. "
-                  "Aumente a frequência de captura.")
+            print("  WARNING: the shortest pulse has fewer than 3 samples. "
+                  "Raise the capture frequency.")
     print()
 
     pending_nibble = None
@@ -282,7 +282,7 @@ def run(events, widths, us, show_all, burst=0):
     def flush_text():
         nonlocal text_run, text_start
         if text_run:
-            print(f"{text_start:12.1f} µs  DADOS  \"{text_run}\"")
+            print(f"{text_start:12.1f} µs  DATA  \"{text_run}\"")
             text_run, text_start = "", None
 
     def show_screen():
@@ -299,21 +299,21 @@ def run(events, widths, us, show_all, burst=0):
             if b != current_burst:
                 flush_text()
                 show_screen()
-                print(f"=== trecho {b + 1} (novo trigger; o tempo parado antes dele não foi gravado) ===")
+                print(f"=== stretch {b + 1} (new trigger; the idle time before it was not recorded) ===")
                 current_burst, last_t = b, None
         if last_t is not None and t - last_t > BURST_GAP_US:
             flush_text()
             show_screen()
-            print(f"--- pausa de {(t - last_t) / 1000:.1f} ms ---")
+            print(f"--- pause of {(t - last_t) / 1000:.1f} ms ---")
         last_t = t
 
         if rw:
             flush_text()
-            print(f"{t:12.1f} µs  LEITURA RS={rs} valor=0x{full:02X}"
+            print(f"{t:12.1f} µs  READ RS={rs} value=0x{full:02X}"
                   + ("  (busy flag = 1)" if (rs == 0 and full & 0x80) else ""))
             continue
 
-        # Modo 4 bits: cada byte chega em duas metades (primeiro a alta).
+        # 4-bit mode: each byte arrives in two halves (high one first).
         if not lcd.eight_bit:
             if pending_nibble is None:
                 pending_nibble = (rs, nib)
@@ -335,39 +335,39 @@ def run(events, widths, us, show_all, burst=0):
             lcd.command(value)
 
     flush_text()
-    print("\nTela final:")
+    print("\nFinal screen:")
     show_screen()
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Decodifica o barramento HD44780 de uma captura do LogicAnalyzer.")
-    ap.add_argument("arquivo", help="captura .lac (recomendado) ou .csv")
-    ap.add_argument("--freq", type=int, help="frequência de captura em Hz (obrigatória para .csv)")
-    ap.add_argument("--todos", action="store_true", help="mostra também comandos 0x00")
-    ap.add_argument("--sem-rw", action="store_true",
-                    help="use quando o fio do RW falhou: trata RS=0 com valor < 0x80 como leitura "
-                         "(vale fora da inicialização, onde só há 'Set DDRAM' e caracteres)")
+    ap = argparse.ArgumentParser(description="Decodes the HD44780 bus from a LogicAnalyzer capture.")
+    ap.add_argument("arquivo", metavar="file", help=".lac capture (recommended) or .csv")
+    ap.add_argument("--freq", type=int, help="capture frequency in Hz (required for .csv)")
+    ap.add_argument("--all", "--todos", dest="todos", action="store_true", help="also show 0x00 commands")
+    ap.add_argument("--no-rw", "--sem-rw", dest="sem_rw", action="store_true",
+                    help="use when the RW wire failed: treats RS=0 with a value < 0x80 as a read "
+                         "(holds outside initialization, where there are only 'Set DDRAM' and characters)")
     args = ap.parse_args()
 
     if args.arquivo.lower().endswith(".lac"):
         freq, pre, burst, by_number, by_name = load_lac(args.arquivo)
     else:
         if not args.freq:
-            sys.exit("Para .csv informe a frequência, por exemplo: --freq 10000000")
+            sys.exit("For .csv give the frequency, for example: --freq 10000000")
         by_number, by_name = load_csv(args.arquivo)
         freq, pre, burst = args.freq, 0, 0
 
     sig = pick_signals(by_number, by_name)
-    print(f"Arquivo: {args.arquivo}   frequência: {freq / 1e6:g} MHz   "
-          f"amostras: {len(sig['E'])}   sinais: {', '.join(s for s in SIGNALS if s in sig)}\n")
+    print(f"File: {args.arquivo}   frequency: {freq / 1e6:g} MHz   "
+          f"samples: {len(sig['E'])}   signals: {', '.join(s for s in SIGNALS if s in sig)}\n")
 
-    # Um fio que não muda nunca, enquanto o E pulsa, provavelmente está solto
-    # ou no pino errado (texto de verdade faz quase todos os bits mudarem).
+    # A wire that never changes while E pulses is probably loose
+    # or on the wrong pin (real text makes almost every bit change).
     stuck = [f"{s}={sig[s][0]}" for s in SIGNALS
              if s != "E" and s in sig and len(set(sig[s])) == 1]
     if stuck and len(set(sig["E"])) > 1:
-        print("ATENÇÃO: estes fios ficaram parados durante toda a captura: " + ", ".join(stuck))
-        print("  Pode ser normal para um ou dois, mas vários parados indicam fio solto ou fora do lugar.\n")
+        print("WARNING: these wires stayed still during the whole capture: " + ", ".join(stuck))
+        print("  That can be normal for one or two, but several still ones point to a loose or misplaced wire.\n")
     events, widths, us, idle = decode(sig, freq, pre)
     report_idle(idle)
     if args.sem_rw:

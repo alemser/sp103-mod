@@ -1,13 +1,13 @@
-"""Telas de informação: recebe da fonte o que está tocando (docs/api-telas.md).
+"""Info screens: receives what is playing from the source (docs/api-telas.md).
 
-O Pico não sabe de onde vêm os dados: só conhece o contrato. Pede a cada 2 s ("SUB2" com
-o bit das telas) e recebe um pacote "NP" quando algo muda e a cada 5 s:
+The Pico doesn't know where the data comes from: it only knows the contract. It subscribes every 2 s ("SUB2" with
+the screens bit) and receives an "NP" packet when something changes and every 5 s:
 
-    "NP" 0x01 flags  campo 0x1F campo ...     (flags: bit 0 = tocando, bit 1 = o lado acabou)
+    "NP" 0x01 flags  field 0x1F field ...     (flags: bit 0 = playing, bit 1 = the side has ended)
 
-As telas só usam a agulha, o streaming e o "tocando" (screens.py); os outros campos do
-contrato (faixa, lado, tempos) são lidos e ignorados. Campo vazio = None. Leve de
-propósito: um split por pacote, nada de JSON.
+The screens only use the stylus, the streaming and "playing" (screens.py); the contract's other
+fields (track, side, times) are read and ignored. Empty field = None. Light on
+purpose: one split per packet, no JSON.
 """
 
 import socket
@@ -16,9 +16,9 @@ import time
 import udp
 
 PORT = 7091
-SUBSCRIBE = b"SUB2\x02"         # só as telas; o VU pede à parte (vu.py)
-SUBSCRIBE_MS = 2000             # a fonte esquece o pedido em 6 s
-STALE_MS = 15000                # sem pacote por 15 s: os dados não valem mais
+SUBSCRIBE = b"SUB2\x02"         # only the screens; the VU subscribes separately (vu.py)
+SUBSCRIBE_MS = 2000             # the source forgets the subscription after 6 s
+STALE_MS = 15000                # no packet for 15 s: the data is no longer valid
 FLAG_PLAYING = 1
 FIELDS = ("artist", "title", "position", "elapsed", "duration", "side", "side_track", "side_tracks",
           "side_left", "stylus_hours", "stylus_wear", "stream", "codec", "sample_rate", "bit_depth", "bitrate")
@@ -38,7 +38,7 @@ class Info:
         self.packets = 0
         self.playing = False
         self.data = {name: None for name in FIELDS}
-        self.stream_seq = 0             # muda quando o streaming (AirPlay, Bluetooth) ou a qualidade muda
+        self.stream_seq = 0             # changes when the streaming (AirPlay, Bluetooth) or the quality changes
 
     def configure(self, on, source):
         addr = (source, PORT)
@@ -46,7 +46,7 @@ class Info:
             self.close()
         self.on = on
         self.addr = addr
-        self.last_sub = None            # pede logo
+        self.last_sub = None            # subscribe right away
 
     def close(self):
         if self.sock is not None:
@@ -56,7 +56,7 @@ class Info:
         self.last_packet = None
 
     def poll(self, now):
-        """Pede e lê os pacotes (sem esperar). True se chegou um pacote novo."""
+        """Subscribes and reads the packets (without waiting). True if a new packet arrived."""
         if not self.on:
             return False
         if self.sock is None:
@@ -68,18 +68,18 @@ class Info:
             try:
                 self.sock.sendto(SUBSCRIBE, self.addr)
             except OSError:
-                pass                    # sem Wi-Fi ainda: tenta de novo em 2 s
+                pass                    # no Wi-Fi yet: tries again in 2 s
         new = False
         while udp.ready(self._poll):
             try:
                 packet = self.sock.recv(512)
             except OSError:
-                break                   # nada na fila
+                break                   # nothing in the queue
             if len(packet) >= 4 and packet[:3] == b"NP\x01":
                 try:
                     self.feed(packet, now)
                 except UnicodeError:
-                    continue            # fora do contrato (só ASCII): ignora o pacote
+                    continue            # outside the contract (ASCII only): ignore the packet
                 new = True
         return new
 

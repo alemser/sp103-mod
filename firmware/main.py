@@ -1,20 +1,20 @@
-"""Roda sozinho toda vez que o Pico liga (o MicroPython executa o main.py ao ligar).
+"""Runs by itself every time the Pico starts (MicroPython runs main.py at boot).
 
-Hoje: a escuta do amp (escuta.py, etapa 4). A demonstração da bancada, com o amp de
-mentira, continua disponível: .venv/bin/mpremote run firmware/bancada_wifi.py
-Para parar e voltar ao computador, basta usar o mpremote: ele interrompe o programa
-(Ctrl-C) antes de cada comando.
+Today: the amp listener (escuta.py, stage 4). The bench demo, with the fake amp, is
+still available: .venv/bin/mpremote run firmware/bancada_wifi.py
+To stop it and get back to the computer, use mpremote: it interrupts the program
+(Ctrl-C) before each command.
 
-Atualização pelo Wi-Fi (ota.py, tools/enviar.py): este arquivo é o "porteiro" que
-devolve a versão anterior se a nova falhar. Por isso ele NÃO usa nenhum outro
-arquivo do projeto e só pode ser trocado pelo cabo USB (o ota.py recusa).
+Updates over Wi-Fi (ota.py, tools/enviar.py): this file is the "gatekeeper" that
+restores the previous version if the new one fails. So it uses NO other file of the
+project and can only be replaced over USB (ota.py refuses it).
 
-    update.json = {"state": "trial", "boots": 0}   versão nova, ainda em teste
-    1º boot da versão nova: boots vira 1 e um relógio dá TRIAL_S segundos para o
-       programa chamar ota.confirm() (state vira "ok"). Se não chamar, reinicia.
-    Boot seguinte ainda em "trial" (travou, deu erro ou o relógio venceu): volta.
-    "rollback" (pedido pela página ou pelo enviar.py): volta também.
-Voltar = copiar de volta a pasta old/ (a versão anterior inteira, guardada pelo ota.py).
+    update.json = {"state": "trial", "boots": 0}   a new version, still on trial
+    1st boot of the new version: boots becomes 1 and a timer gives the program
+       TRIAL_S seconds to call ota.confirm() (state becomes "ok"). If it doesn't, the Pico restarts.
+    Next boot still on "trial" (hung, crashed or the timer ran out): go back.
+    "rollback" (asked for by the page or by enviar.py): go back too.
+Going back = copying back the old/ folder (the whole previous version, kept by ota.py).
 """
 
 import os
@@ -25,7 +25,7 @@ import machine
 
 MARKER = "update.json"
 OLD = "old"
-TRIAL_S = 180               # tempo para a versão nova se mostrar saudável (ver escuta.py)
+TRIAL_S = 180               # time for the new version to prove healthy (see escuta.py)
 _timer = None
 
 
@@ -43,11 +43,11 @@ def _save(m):
 
 
 def _restore():
-    """Põe de volta a versão guardada em old/. Pode repetir sem estragar (se faltar luz no meio)."""
+    """Puts back the version kept in old/. Safe to repeat (if the power goes midway)."""
     old = os.listdir(OLD)
     for name in os.listdir():
         if name.endswith(".py") and name != "main.py" and name not in old:
-            os.remove(name)                 # arquivo que só existia na versão nova
+            os.remove(name)                 # a file that only existed in the new version
     buf = bytearray(1024)
     for name in old:
         with open(OLD + "/" + name, "rb") as src, open(name, "wb") as dst:
@@ -59,7 +59,7 @@ def _restore():
 
 
 def _check_update():
-    global _timer                           # guardado aqui para o coletor de lixo não apagá-lo
+    global _timer                           # kept here so the garbage collector doesn't free it
     m = _marker()
     if not m:
         return
@@ -75,7 +75,7 @@ def _check_update():
 
         def deadline(t):
             if (_marker() or {}).get("state") == "trial":
-                machine.reset()             # não confirmou: o próximo boot volta
+                machine.reset()             # didn't confirm: the next boot goes back
         _timer = machine.Timer(period=TRIAL_S * 1000, mode=machine.Timer.ONE_SHOT,
                                callback=deadline)
 
@@ -83,13 +83,13 @@ def _check_update():
 try:
     _check_update()
 except Exception as e:
-    sys.print_exception(e)          # sem old/ ou flash com problema: segue com o que há
+    sys.print_exception(e)          # no old/ or a flash problem: carry on with what there is
 
 try:
-    import escuta                   # noqa: F401  (o programa roda ao ser importado)
+    import escuta                   # noqa: F401  (the program runs when imported)
 except Exception as e:
-    # Qualquer erro (Wi-Fi fora do ar, por exemplo): mostra e tenta de novo em 30 s.
-    # Numa versão em teste, esse reinício faz o _check_update() voltar à anterior.
+    # Any error (Wi-Fi down, for example): show it and try again in 30 s.
+    # On a version on trial, this restart makes _check_update() go back to the previous one.
     sys.print_exception(e)
     try:
         from lcd1602 import Lcd1602

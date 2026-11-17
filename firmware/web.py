@@ -1,20 +1,20 @@
-"""Servidor HTTP do Pico: publica o estado do amp na rede (o Wi-Fi fica no wifi.py).
+"""The Pico's HTTP server: publishes the amp's state on the network (Wi-Fi is in wifi.py).
 
-    GET /state    o estado em JSON
-    GET /events   Server-Sent Events: um "data: {json}" quando muda (no máximo 4 por segundo)
-    GET /names    os textos personalizados (nomes das entradas e telas de inicialização)
-    PUT /names    troca os textos: {"inputs": {"TUNER": "Rega Planar 2"}, "boot": [...], "about": [...],
+    GET /state    the state as JSON
+    GET /events   Server-Sent Events: one "data: {json}" on change (at most 4 per second)
+    GET /names    the custom texts (input names and boot screens)
+    PUT /names    replaces the texts: {"inputs": {"TUNER": "Rega Planar 2"}, "boot": [...], "about": [...],
                   "vu": {"on": true, "layout": "bars", "relay": "192.168.1.50"},
-                   "info": {"on": true, "mode": "temp", ...}}      (telas de informação)
-                  (texto vazio = original; ver names.py)
-    outras        rotas extras, por prefixo: routes={"/update": ota.handle, "/bus": log.handle, "/device": device.handle}
+                   "info": {"on": true, "mode": "temp", ...}}      (info screens)
+                  (empty text = original; see names.py)
+    others        extra routes, by prefix: routes={"/update": ota.handle, "/bus": log.handle, "/device": device.handle}
 
-Uso (com asyncio):
-    pub = Publisher(state, get_names=g, set_names=s)   # s(cfg) valida, guarda e aplica; levanta ValueError
-    (routes: handler(req, writer) assíncrono; req = Request, ver abaixo; responde com reply())
+Use (with asyncio):
+    pub = Publisher(state, get_names=g, set_names=s)   # s(cfg) validates, saves and applies; raises ValueError
+    (routes: async handler(req, writer); req = Request, below; answers with reply())
     asyncio.create_task(pub.serve())
     ...
-    pub.changed()      # chame depois de cada state.update() que devolveu True
+    pub.changed()      # call after every state.update() that returned True
 """
 
 import json
@@ -22,16 +22,16 @@ import asyncio
 
 from listeners import make_room
 
-CHUNK = 1024                    # o corpo vai em pedaços: o Wi-Fi do Pico tem pouca memória
-# /events: no máximo um estado a cada EVENT_GAP_S, sempre o mais recente. Mandar um a cada mudança
-# de tela (girar o volume dá dezenas por segundo) enche a memória do lwIP, e aí cada escrita trava
-# o Pico por 10 s (issue #2): o menu do Function fecha antes da tecla chegar.
+CHUNK = 1024                    # the body goes in chunks: the Pico's Wi-Fi has little memory
+# /events: at most one state every EVENT_GAP_S, always the latest. Sending one on every screen
+# change (turning the volume gives dozens per second) fills lwIP's memory, and then each write
+# stalls the Pico for 10 s (issue #2): the Function menu closes before the key arrives.
 EVENT_GAP_S = 0.25
-PING_S = 1                      # o groove-rig desiste depois de 5 s sem nada
+PING_S = 1                      # groove-rig gives up after 5 s of silence
 
 
 class Request:
-    """Um pedido HTTP já lido até os cabeçalhos. O corpo fica em reader (length bytes)."""
+    """An HTTP request read up to its headers. The body is left in reader (length bytes)."""
 
     def __init__(self, method, path, headers, reader):
         self.method = method
@@ -40,18 +40,18 @@ class Request:
         for p in query.split("&"):
             key, _, value = p.partition("=")
             self.query[key] = value
-        self.headers = headers          # nomes em minúsculas
+        self.headers = headers          # names in lower case
         self.reader = reader
         self.length = int(headers.get("content-length", 0))
 
 
 async def reply(writer, status, ctype, body):
-    # no-store: tudo aqui muda com o estado e com as atualizações por OTA.
+    # no-store: everything here changes with the state and with OTA updates.
     writer.write(("HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %d\r\nCache-Control: no-store\r\n"
                   "Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
                   % (status, ctype, len(body))).encode())
     await writer.drain()
-    # Em pedaços: uma resposta grande de uma vez aperta a memória do Wi-Fi (issue #2).
+    # In chunks: a large answer in one go squeezes the Wi-Fi's memory (issue #2).
     for i in range(0, len(body), CHUNK):
         writer.write(body[i:i + CHUNK])
         await writer.drain()
@@ -66,19 +66,19 @@ class Publisher:
         self.state = state
         self.get_names = get_names
         self.set_names = set_names
-        self.names_extra = names_extra  # campos a mais no GET /names (ex.: as contagens do proxy)
+        self.names_extra = names_extra  # extra fields in GET /names (e.g. the proxy's counters)
         self.port = port
         self.routes = routes or {}
-        self.listeners = []             # conexões abertas em /events: (ip, writer), ver listeners.py
-        self.served = 0                 # pedidos respondidos desde que o Pico ligou
-        self.version = 0                # sobe a cada changed(); cada ouvinte guarda o último que enviou
+        self.listeners = []             # open /events connections: (ip, writer), see listeners.py
+        self.served = 0                 # requests answered since the Pico started
+        self.version = 0                # goes up on every changed(); each listener keeps the last one it sent
 
     def _json(self):
         return json.dumps(self.state.to_dict())
 
     def changed(self):
-        """Marca que o estado mudou (chamar depois de cada mudança). Quem envia é o laço de cada
-        ouvinte em _events(), no máximo um estado a cada EVENT_GAP_S, sempre o mais recente."""
+        """Marks the state as changed (call after each change). Each listener's loop in _events()
+        does the sending, at most one state every EVENT_GAP_S, always the latest."""
         self.version += 1
 
     async def serve(self):
@@ -127,7 +127,7 @@ class Publisher:
         if method == "PUT" and self.set_names:
             try:
                 self.set_names(json.loads(body))
-            except ValueError as e:     # JSON inválido ou texto recusado por names.validate
+            except ValueError as e:     # invalid JSON or text rejected by names.validate
                 status, answer = "400 Bad Request", {"error": str(e)}
         if answer is None:
             answer = {"config": self.get_names(), "inputs": names.INPUTS,
@@ -145,14 +145,14 @@ class Publisher:
         except Exception:
             ip = None
         make_room(self.listeners, ip)
-        writer.write(("data: " + self._json() + "\n\n").encode())   # estado atual logo de cara
+        writer.write(("data: " + self._json() + "\n\n").encode())   # the current state straight away
         entry = (ip, writer)
         self.listeners.append(entry)
         sent = self.version
         quiet = 0
         try:
-            while entry in self.listeners:      # fora da lista = outra conexão tomou o lugar
-                await writer.drain()            # falha se a conexão caiu
+            while entry in self.listeners:      # off the list = another connection took its place
+                await writer.drain()            # fails if the connection dropped
                 await asyncio.sleep(EVENT_GAP_S)
                 if entry not in self.listeners:
                     break
@@ -164,7 +164,7 @@ class Publisher:
                     quiet += 1
                     if quiet * EVENT_GAP_S >= PING_S:
                         quiet = 0
-                        writer.write(b": ping\n\n")   # comentário SSE: mantém a conexão viva
+                        writer.write(b": ping\n\n")   # SSE comment: keeps the connection alive
         except Exception:
             pass
         finally:

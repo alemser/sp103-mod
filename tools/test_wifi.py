@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Testa no computador o Wi-Fi do Pico (firmware/wifi.py), com um chip de Wi-Fi de mentira.
+"""Tests the Pico's Wi-Fi (firmware/wifi.py) on the computer, with a fake Wi-Fi chip.
 
     python3 tools/test_wifi.py
 """
@@ -26,8 +26,8 @@ clock = Clock()
 
 
 class FakeWLAN:
-    """Os dois lados do chip: a rede de casa (STA) e a de configuração (AP)."""
-    routers = {}                # as redes no ar: ssid -> senha ("" = aberta)
+    """The chip's two sides: the home network (STA) and the setup network (AP)."""
+    routers = {}                # the networks on the air: ssid -> password ("" = open)
 
     def __init__(self, kind):
         self.kind = kind
@@ -92,7 +92,7 @@ tmp = tempfile.mkdtemp()
 
 
 def fresh(name, saved=None, routers=None):
-    """Um Wifi com o chip já ligado, como o task() deixa na primeira volta."""
+    """A Wifi with the chip already up, as task() leaves it on its first round."""
     path = os.path.join(tmp, name + ".json")
     if saved:
         with open(path, "w") as f:
@@ -140,17 +140,17 @@ assert wifi.validate({"ssid": "Aberta"}) == ("Aberta", "")
 for bad in ({"ssid": ""}, {"psk": "12345678"}, {"ssid": "Casa", "psk": "1234567"}, {"ssid": "x" * 33}, [1]):
     try:
         wifi.validate(bad)
-        raise AssertionError("aceitou %r" % (bad,))
+        raise AssertionError("accepted %r" % (bad,))
     except ValueError:
         pass
 
-# --- collapse: um por nome, o mais forte, sem os ocultos; o 6º campo (contagem) não importa ---
+# --- collapse: one per name, the strongest, no hidden ones; the 6th field (a count) doesn't matter ---
 
 assert wifi.collapse(FakeWLAN("sta").scan()) == [{"ssid": "Casa", "rssi": -40, "secure": True},
                                                  {"ssid": "Vizinho", "rssi": -70, "secure": False}]
 assert len(wifi.collapse([(b"n%d" % i, b"", 1, -i, 0, 1) for i in range(30)])) == 20
 
-# --- a rede salva: wifi.json primeiro, depois o secrets.py dos Picos antigos ---
+# --- the saved network: wifi.json first, then older Picos' secrets.py ---
 
 net = fresh("vazio")
 sys.modules["secrets"] = types.SimpleNamespace(WIFI_SSID="Antiga", WIFI_PASSWORD="senha-antiga")
@@ -160,7 +160,7 @@ assert net.saved() == {"ssid": "Casa", "psk": "12345678"}
 sys.modules["secrets"] = types.SimpleNamespace(WIFI_SSID="")
 assert fresh("nada").saved() is None
 
-# --- sem rede salva: a rede de configuração abre na hora ---
+# --- no saved network: the setup network opens at once ---
 
 net = fresh("primeira-vez")
 net._supervise()
@@ -172,7 +172,7 @@ assert status == 200 and body["setup"] == {"open": True, "ssid": "AmpLink-SP103-
 assert request(net, "GET", "/wifi/networks")[1][0]["ssid"] == "Casa"
 assert json.loads(net.answer()) == {"name": "SP103-D85E", "model": "sp103", "ip": "192.168.4.1"}
 
-# --- configurar: PUT /wifi, conecta, salva, e a rede de configuração fecha 60 s depois ---
+# --- setting up: PUT /wifi connects, saves, and the setup network closes 60 s later ---
 
 FakeWLAN.routers = {"Casa": "12345678"}
 assert request(net, "PUT", "/wifi", {"ssid": "Casa", "psk": "123"})[0] == 400
@@ -185,13 +185,13 @@ assert net.status == {"state": "connected", "detail": "Casa", "ip": "192.168.1.7
 assert net.saved() == {"ssid": "Casa", "psk": "12345678"}
 assert json.loads(net.answer())["ip"] == "192.168.1.77"
 net._supervise()
-assert net.setup_open()                     # ainda: quem configurou precisa ler o IP
+assert net.setup_open()                     # still: whoever set it up needs to read the IP
 clock.now += wifi.CLOSE_SETUP_AFTER_S
 net._supervise()
 assert not net.setup_open()
-assert request(net, "GET", "/")[0] == 404   # sem a rede de configuração, não há página
+assert request(net, "GET", "/")[0] == 404   # without the setup network, no page
 
-# --- conectado, a troca de rede só passa com a rede de configuração aberta ---
+# --- connected, a network switch only goes through with the setup network open ---
 
 assert request(net, "PUT", "/wifi", {"ssid": "Outra", "psk": "12345678"})[0] == 403
 assert request(net, "DELETE", "/wifi")[0] == 403
@@ -204,7 +204,7 @@ clock.now += 1
 net._supervise()
 assert not net.setup_open()
 
-# --- a rede nova falha: o motivo fica no status e o Pico volta para a anterior ---
+# --- the new network fails: the reason stays in the status and the Pico goes back to the previous one ---
 
 net.open_setup(wifi.SETUP_WINDOW_S)
 run(net._configure("Casa", "senha-errada"))
@@ -214,7 +214,7 @@ assert net.saved() == {"ssid": "Casa", "psk": "12345678"}
 run(net._configure("Sumiu", ""))
 assert net.status["detail"] == "network not found" and net.sta.isconnected()
 
-# --- a rede salva some (roteador desligado): abre a configuração depois de 2 min; fecha quando ela volta ---
+# --- the saved network goes away (router off): setup opens after 2 min; closes when it comes back ---
 
 net = fresh("roteador", saved={"ssid": "Casa", "psk": "12345678"}, routers={})
 net._supervise()
@@ -233,11 +233,11 @@ clock.now += wifi.CLOSE_SETUP_AFTER_S
 net._supervise()
 assert not net.setup_open()
 
-# --- esquecer a rede ---
+# --- forgetting the network ---
 
 net.open_setup(wifi.SETUP_WINDOW_S)
 assert request(net, "DELETE", "/wifi")[1]["ssid"] == ""
 assert net.saved() is None
 assert request(net, "GET", "/wifi/nada")[0] == 404
 
-print("tudo certo")
+print("all good")

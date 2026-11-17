@@ -1,21 +1,21 @@
-// Command sp103-vu-relay repassa o VU do groove-detector ao Pico do SP103, por UDP, e
-// também o que está tocando, para as telas de informação (nowplaying.go).
+// Command sp103-vu-relay forwards the groove-detector VU to the SP103 Pico over UDP,
+// along with what is playing, for the info screens (nowplaying.go).
 //
-// O groove-detector publica o VU num socket Unix (16 bytes por quadro, ~21,5 por
-// segundo: float32 L, float32 R, uint64 sample_index; ver o docs/contracts.md dele) e
-// diz se há música no arquivo do gate ("state": "programme" ou "idle"). O Pico está no
-// Wi-Fi e não alcança nenhum dos dois. Esta ponte é só mais um leitor deles: o detector
-// não muda e não sabe que o SP103 existe.
+// The groove-detector publishes the VU on a Unix socket (16 bytes per frame, ~21.5 per
+// second: float32 L, float32 R, uint64 sample_index; see its docs/contracts.md) and
+// says whether music is playing in the gate file ("state": "programme" or "idle"). The
+// Pico is on Wi-Fi and cannot reach either. This bridge is just one more reader of them:
+// the detector does not change and does not know the SP103 exists.
 //
-// Protocolo (porta UDP 7091):
+// Protocol (UDP port 7091):
 //
-//	Pico  → ponte  "SUB1"                       pedido só do VU; vale 6 s, o Pico repete a cada 2 s
-//	Pico  → ponte  "SUB2" máscara               bit 0 = VU, bit 1 = telas (docs/api-telas.md)
-//	ponte → Pico   "VU" 0x01 flags L R          12 bytes; L e R float32 little-endian (RMS 0..1)
-//	               flags: bit 0 = há música, bit 1 = o gate foi lido
-//	ponte → Pico   "NP" 0x01 flags campos...    as telas: ver docs/api-telas.md
+//	Pico   → bridge "SUB1"                      VU-only request; valid for 6 s, the Pico repeats it every 2 s
+//	Pico   → bridge "SUB2" mask                 bit 0 = VU, bit 1 = screens (docs/api-telas.md)
+//	bridge → Pico   "VU" 0x01 flags L R         12 bytes; L and R float32 little-endian (RMS 0..1)
+//	                flags: bit 0 = music playing, bit 1 = the gate was read
+//	bridge → Pico   "NP" 0x01 flags fields...   the screens: see docs/api-telas.md
 //
-// Sem pedido válido, a ponte não envia nada.
+// Without a valid request, the bridge sends nothing.
 package main
 
 import (
@@ -46,7 +46,7 @@ const (
 
 var subscribeMsg = []byte("SUB1")
 
-// parseSubscribe lê um pedido: "SUB1" (só o VU) ou "SUB2" + máscara. 0 = não é pedido.
+// parseSubscribe reads a request: "SUB1" (VU only) or "SUB2" + mask. 0 = not a request.
 func parseSubscribe(p []byte) byte {
 	switch {
 	case len(p) == 4 && string(p) == "SUB1":
@@ -75,7 +75,7 @@ func newRelay() *relay {
 	return &relay{subs: map[string]subscriber{}}
 }
 
-// subscribe renova o pedido de addr. Devolve false se já há maxSubs pedidos ativos.
+// subscribe renews addr's request. Returns false if maxSubs requests are already active.
 func (r *relay) subscribe(addr *net.UDPAddr, mask byte, now time.Time) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -91,7 +91,7 @@ func (r *relay) subscribe(addr *net.UDPAddr, mask byte, now time.Time) bool {
 	return true
 }
 
-// targets devolve os pedidos ainda válidos que querem o que a máscara diz.
+// targets returns the still-valid requests that want what the mask says.
 func (r *relay) targets(now time.Time, mask byte) []*net.UDPAddr {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -125,15 +125,15 @@ func (r *relay) flags() byte {
 	return f
 }
 
-// packet monta o datagrama para o Pico a partir de um quadro do detector.
+// packet builds the datagram for the Pico from a detector frame.
 func packet(frame []byte, flags byte) []byte {
 	p := make([]byte, packetSize)
 	p[0], p[1], p[2], p[3] = 'V', 'U', version, flags
-	copy(p[4:12], frame[0:8]) // L e R já vêm em float32 little-endian
+	copy(p[4:12], frame[0:8]) // L and R already arrive as float32 little-endian
 	return p
 }
 
-// readGate lê o "state" do arquivo do gate do detector.
+// readGate reads the "state" from the detector's gate file.
 func readGate(path string) (programme, ok bool) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -209,7 +209,7 @@ func (r *relay) pumpVU(sockPath string, conn *net.UDPConn) {
 			}
 			p := packet(frame, r.flags())
 			for _, addr := range targets {
-				conn.WriteToUDP(p, addr) // UDP: um quadro perdido não importa
+				conn.WriteToUDP(p, addr) // UDP: a lost frame does not matter
 			}
 		}
 		c.Close()
@@ -219,12 +219,12 @@ func (r *relay) pumpVU(sockPath string, conn *net.UDPConn) {
 }
 
 func main() {
-	listen := flag.String("listen", ":7091", "endereço UDP para os pedidos do Pico")
-	vuSock := flag.String("vu", "/tmp/groove-vu.sock", "socket do VU do groove-detector")
-	gate := flag.String("gate", "/tmp/groove-gate.json", "arquivo do gate do groove-detector")
-	identity := flag.String("identity", "http://127.0.0.1:7071", "groove-identity (o que está tocando)")
-	catalog := flag.String("catalog", "http://127.0.0.1:7073", "groove-catalog (faixas do disco e agulha)")
-	transport := flag.String("transport", "/tmp/groove-transport.json", "arquivo de transporte do groove-detector (AirPlay, Bluetooth)")
+	listen := flag.String("listen", ":7091", "UDP address for the Pico's requests")
+	vuSock := flag.String("vu", "/tmp/groove-vu.sock", "groove-detector VU socket")
+	gate := flag.String("gate", "/tmp/groove-gate.json", "groove-detector gate file")
+	identity := flag.String("identity", "http://127.0.0.1:7071", "groove-identity (what is playing)")
+	catalog := flag.String("catalog", "http://127.0.0.1:7073", "groove-catalog (record tracks and stylus)")
+	transport := flag.String("transport", "/tmp/groove-transport.json", "groove-detector transport file (AirPlay, Bluetooth)")
 	flag.Parse()
 
 	addr, err := net.ResolveUDPAddr("udp", *listen)

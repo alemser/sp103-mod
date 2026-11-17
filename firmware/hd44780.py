@@ -1,19 +1,19 @@
-"""Cópia da memória do LCD do amp (HD44780), montada com os bytes que o sniffer lê do barramento.
+"""Copy of the amp's LCD memory (HD44780), built from the bytes the sniffer reads off the bus.
 
-Roda igual no MicroPython (Pico) e no Python do computador (tools/test_sniffer.py).
+Runs the same on MicroPython (Pico) and on the computer's Python (tools/test_sniffer.py).
 
-Cada "palavra" é o barramento no instante em que o E desce (é nessa borda que o LCD lê o byte),
-na ordem dos fios GP2..GP12 (docs/ligacao-analisador.md):
+Each "word" is the bus at the moment E falls (that is the edge on which the LCD reads the byte),
+in the order of the wires GP2..GP12 (docs/ligacao-analisador.md):
 
     bit 0 = E   bit 1 = RS   bit 2 = RW   bits 3..10 = D0..D7
 
-Uso:
+Usage:
     bus = Bus()
-    for palavra in sniffer.read():
-        bus.feed(palavra)
-    ...depois de ~2 ms sem palavras novas (o controlador terminou de redesenhar):
+    for word in sniffer.read():
+        bus.feed(word)
+    ...after ~2 ms with no new words (the controller has finished redrawing):
     if bus.pending:
-        linha1, linha2 = bus.take()
+        line1, line2 = bus.take()
 """
 
 RS = 1 << 1
@@ -22,16 +22,16 @@ DATA_SHIFT = 3
 
 
 class Lcd:
-    """A parte do HD44780 que importa para reconstruir a tela (ver tools/hd44780_decode.py)."""
+    """The part of the HD44780 that matters to rebuild the screen (see tools/hd44780_decode.py)."""
 
     def __init__(self):
-        self.ddram = bytearray(b" " * 0x80)   # 0x00-0x27 = linha 1, 0x40-0x67 = linha 2
+        self.ddram = bytearray(b" " * 0x80)   # 0x00-0x27 = line 1, 0x40-0x67 = line 2
         self.addr = 0
         self.inc = 1
-        self.shift = 0                        # deslocamento do display (comando shift)
-        self.display_on = True                # comando "display on/off" (0x08 / 0x0C)
+        self.shift = 0                        # display shift (shift command)
+        self.display_on = True                # "display on/off" command (0x08 / 0x0C)
         self.cgram_mode = False
-        self.cgram = bytearray(64)            # os 8 desenhos próprios (8 linhas de 5 pontos cada)
+        self.cgram = bytearray(64)            # the 8 custom characters (8 rows of 5 dots each)
         self.cgaddr = 0
 
     def command(self, b):
@@ -41,7 +41,7 @@ class Lcd:
             self.cgram_mode = True
             self.cgaddr = b & 0x3F
         elif b & 0x20:
-            pass                              # Function set: o amp usa sempre 8 bits
+            pass                              # Function set: the amp always uses 8 bits
         elif b & 0x10:
             if b & 0x08:
                 self.shift += -1 if b & 0x04 else 1
@@ -58,12 +58,12 @@ class Lcd:
 
     def data(self, b):
         if self.cgram_mode:
-            self.cgram[self.cgaddr] = b & 0x1F    # uma linha de um desenho próprio
+            self.cgram[self.cgaddr] = b & 0x1F    # one row of a custom character
             self.cgaddr = (self.cgaddr + 1) & 0x3F
             return
         self.ddram[self.addr] = b
         a = self.addr + self.inc
-        # O HD44780 pula de 0x27 para 0x40 e de 0x67 para 0x00.
+        # The HD44780 jumps from 0x27 to 0x40 and from 0x67 to 0x00.
         if a == 0x28:
             a = 0x40
         elif a == 0x68:
@@ -75,7 +75,7 @@ class Lcd:
         self.addr = a & 0x7F
 
     def lines(self):
-        """As duas linhas visíveis, com os códigos originais (chr(0) = caixa das barras)."""
+        """The two visible lines, with the original codes (chr(0) = the bars' box)."""
         return tuple("".join(chr(self.ddram[base + (col + self.shift) % 40]) for col in range(16))
                      for base in (0x00, 0x40))
 
@@ -83,14 +83,14 @@ class Lcd:
 class Bus:
     def __init__(self):
         self.lcd = Lcd()
-        self.pending = False                  # houve escrita desde o último take()
+        self.pending = False                  # there was a write since the last take()
         self.writes = 0
         self.reads = 0
-        self.clears = 0                       # "Clear display": o controlador acabou de ligar
+        self.clears = 0                       # "Clear display": the controller has just powered up
 
     def feed(self, word):
         if word & RW:
-            self.reads += 1                   # leitura do busy flag: não muda a tela
+            self.reads += 1                   # busy flag read: does not change the screen
             return
         value = (word >> DATA_SHIFT) & 0xFF
         if word & RS:
@@ -108,8 +108,8 @@ class Bus:
 
 
 def describe(word):
-    """Uma palavra em texto, para o registro do barramento (buslog.py). Não sabe se um dado
-    vai para a CGRAM ou para a tela (isso depende dos comandos anteriores)."""
+    """A word as text, for the bus log (buslog.py). It does not know whether a data byte
+    goes to CGRAM or to the screen (that depends on the previous commands)."""
     value = (word >> DATA_SHIFT) & 0xFF
     if word & RW:
         return "read data" if word & RS else "read busy flag"

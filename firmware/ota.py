@@ -1,21 +1,21 @@
-"""Atualização do programa pelo Wi-Fi, com senha e volta automática.
+"""Firmware update over Wi-Fi, with a password and automatic rollback.
 
-No computador, quem usa isto é o tools/enviar.py. Os pedidos com senha levam o
-cabeçalho "X-Password: <secrets.UPDATE_PASSWORD>" (sem essa linha no secrets.py,
-a atualização fica desligada).
+On the computer, tools/enviar.py uses this. Password-protected requests carry the
+header "X-Password: <secrets.UPDATE_PASSWORD>" (without that line in secrets.py,
+updates are off).
 
-    GET  /update            estado: versão, arquivos (sha256), arquivos recebidos
-    PUT  /update/<nome>.py  recebe um arquivo em new/ (confere a sintaxe)     [senha]
-    DELETE /update/<nome>.py  marca o arquivo para apagar no próximo apply   [senha]
-    POST /update/cancel     apaga o que foi recebido e não aplicado            [senha]
-    POST /update/apply      guarda a versão atual em old/, aplica new/, reinicia [senha]
+    GET  /update            state: version, files (sha256), staged files
+    PUT  /update/<name>.py  receives a file into new/ (checks its syntax)      [password]
+    DELETE /update/<name>.py  marks a file for deletion at the next apply      [password]
+    POST /update/cancel     drops what was received and not applied            [password]
+    POST /update/apply      keeps the running version in old/, applies new/, restarts [password]
 
-Apagar também passa pelo old/: se a versão nova falhar, o main.py traz o arquivo de volta.
-    POST /update/rollback   volta para a versão de old/ e reinicia             [senha]
+Deleting also goes through old/: if the new version fails, main.py brings the file back.
+    POST /update/rollback   goes back to the version in old/ and restarts      [password]
 
-Depois do apply, a versão nova fica "em teste" (update.json, state "trial"). O
-escuta.py chama confirm() quando ela se mostra saudável; se não chamar, o main.py
-devolve a versão anterior (ver main.py, que só se troca pelo cabo).
+After apply the new version is on trial (update.json, state "trial"). escuta.py
+calls confirm() once it proves healthy; if it doesn't, main.py restores the
+previous version (see main.py, which only changes over USB).
 """
 
 import os
@@ -28,11 +28,11 @@ from binascii import hexlify
 import secrets
 from web import reply_json
 
-MARKER = "update.json"          # os mesmos nomes do main.py
+MARKER = "update.json"          # the same names as main.py
 OLD = "old"
 NEW = "new"
-LOCKED = ("main.py", "secrets.py")   # só pelo cabo: o porteiro e as senhas
-DELETE = ".del"                 # new/<nome>.py.del = apagar <nome>.py no apply
+LOCKED = ("main.py", "secrets.py")   # USB only: the gatekeeper and the passwords
+DELETE = ".del"                 # new/<name>.py.del = delete <name>.py at apply
 
 
 def _marker():
@@ -53,7 +53,7 @@ def in_trial():
 
 
 def confirm():
-    """A versão nova funcionou: fica de vez (old/ continua guardando a anterior)."""
+    """The new version works: it stays (old/ keeps the previous one)."""
     m = _marker()
     if m.get("state") == "trial":
         m["state"] = "ok"
@@ -102,7 +102,7 @@ def _clear(folder):
 
 
 def _program(folder=""):
-    """Os arquivos do programa numa pasta (o secrets.py fica de fora: tem senhas)."""
+    """The program's files in a folder (secrets.py is left out: it holds passwords)."""
     return [n for n in _ls(folder) if n.endswith(".py") and n != "secrets.py"]
 
 
@@ -111,8 +111,8 @@ def _files(folder=""):
 
 
 def version(files):
-    """Um código curto que muda sempre que algum arquivo do programa muda (fora o main.py,
-    que não vai para old/, para a versão anterior guardada ter o mesmo código de antes)."""
+    """A short code that changes whenever a program file changes (except main.py, which
+    doesn't go to old/, so the kept previous version has the same code it had before)."""
     h = hashlib.sha256()
     for name in sorted(files):
         if name in LOCKED:
@@ -121,11 +121,11 @@ def version(files):
     return hexlify(h.digest()).decode()[:8]
 
 
-_current = None                 # o programa só muda reiniciando: calcula uma vez só
+_current = None                 # the program only changes by restarting: computed once
 
 
 async def current_version():
-    """A versão do status(), sem parar a escuta: ler todos os arquivos de uma vez leva uns 0,6 s."""
+    """status()'s version, without stalling the listener: reading every file in one go takes about 0.6 s."""
     global _current
     if _current is None:
         files = {}
@@ -151,8 +151,8 @@ def _valid_name(name):
 
 
 async def _discard(req):
-    """Lê e joga fora o corpo do pedido: respondendo sem ler, a conexão cai e o
-    computador não vê a mensagem de erro."""
+    """Reads and drops the request body: answering without reading it drops the
+    connection and the computer never sees the error message."""
     left = req.length
     while left > 0:
         chunk = await req.reader.read(min(1024, left))
@@ -162,7 +162,7 @@ async def _discard(req):
 
 
 async def _stage(req, name):
-    """Recebe um arquivo em new/ e confere se o MicroPython consegue ler o código."""
+    """Receives a file into new/ and checks that MicroPython can read the code."""
     if not _valid_name(name):
         await _discard(req)
         raise ValueError("%s cannot be updated over Wi-Fi" % name)
@@ -190,7 +190,7 @@ async def _stage(req, name):
 
 
 def _stage_delete(name):
-    """Marca um arquivo do programa para apagar no próximo apply."""
+    """Marks a program file for deletion at the next apply."""
     if not _valid_name(name):
         raise ValueError("%s cannot be deleted over Wi-Fi" % name)
     if name not in _program():
@@ -206,14 +206,14 @@ def _apply():
         raise ValueError("nothing to apply: send the files first")
     if in_trial():
         raise ValueError("the last update is still on trial; wait for it to confirm")
-    # 1. A versão atual inteira vai para old/ (o main.py volta para ela se a nova falhar).
+    # 1. The whole running version goes to old/ (main.py goes back to it if the new one fails).
     _clear(OLD)
     for name in _ls():
         if name.endswith(".py") and name != "main.py":
             _copy(name, _path(OLD, name))
-    # 2. Marca "em teste" ANTES de trocar: se faltar luz no meio, o main.py volta.
+    # 2. Mark "trial" BEFORE swapping: if the power goes midway, main.py goes back.
     _save({"state": "trial", "boots": 0, "files": staged})
-    # 3. Troca (ou apaga) os arquivos.
+    # 3. Swap (or delete) the files.
     for name in staged:
         target = name[:-len(DELETE)] if name.endswith(DELETE) else name
         if target in os.listdir():
@@ -229,12 +229,12 @@ def _apply():
 
 
 async def _reset_soon():
-    await asyncio.sleep(1)              # dá tempo da resposta chegar ao computador
+    await asyncio.sleep(1)              # gives the answer time to reach the computer
     machine.reset()
 
 
 async def handle(req, writer):
-    """Rota /update (ver web.Publisher)."""
+    """Route /update (see web.Publisher)."""
     if req.method == "GET" and req.path == "/update":
         return await reply_json(writer, status())
     password = getattr(secrets, "UPDATE_PASSWORD", None)
@@ -244,7 +244,7 @@ async def handle(req, writer):
         return await reply_json(writer, {"error": "updates are off: no UPDATE_PASSWORD in secrets.py"},
                                 "403 Forbidden")
     if req.headers.get("x-password") != password:
-        await asyncio.sleep(1)          # atrasa quem tenta adivinhar a senha
+        await asyncio.sleep(1)          # slows down password guessing
         return await reply_json(writer, {"error": "wrong password"}, "403 Forbidden")
     action = req.path[len("/update/"):]
     try:

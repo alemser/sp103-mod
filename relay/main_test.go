@@ -137,7 +137,7 @@ func TestEndToEnd(t *testing.T) {
 	}
 }
 
-// rms devolve L e R de um pacote .
+// rms returns L and R from a packet.
 func rms(p []byte) (float32, float32) {
 	return math.Float32frombits(binary.LittleEndian.Uint32(p[4:8])),
 		math.Float32frombits(binary.LittleEndian.Uint32(p[8:12]))

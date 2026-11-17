@@ -1,36 +1,38 @@
-"""Etapa 6: o Pico no meio, entre o controlador do amp e o display (opção 3b).
+"""Stage 6: the Pico in the middle, between the amp's controller and the display (option 3b).
 
-O display do amp foi dessoldado nos pinos 4..14 (docs/proxy-ligacao.md):
-- lado do controlador: GP2..GP12 (E, RS, RW, D0..D7), como na escuta. O Pico só lê
-  (sniffer.py) e responde "livre" às leituras do busy flag (busy.py), puxando o D7 para 0;
-- lado do display: GP16..21 (RS, E, D4..D7), modo 4 bits, RW do display no GND (lcd1602.py).
+The amp's display was desoldered at pins 4..14 (docs/proxy-ligacao.md):
+- controller side: GP2..GP12 (E, RS, RW, D0..D7), as in the listener. The Pico only reads
+  (sniffer.py) and answers "free" to busy-flag reads (busy.py), pulling D7 to 0;
+- display side: GP16..21 (RS, E, D4..D7), 4-bit mode, display RW tied to GND (lcd1602.py).
 
-Cada tela completa do controlador é reconstruída (hd44780.py), vai para o leitor
-(amp_state) e é desenhada no display do amp já com os textos personalizados
-(names.rewrite). Os desenhos próprios (CGRAM) e o "display on/off" seguem os do controlador.
+Each complete controller screen is rebuilt (hd44780.py), goes to the reader (amp_state)
+and is drawn on the amp's display with the custom texts already applied (names.rewrite).
+The custom characters (CGRAM) and "display on/off" follow the controller's.
 
-Com o VU ligado na configuração (vu.py), as duas linhas viram as barras L e R enquanto houver
-música; cada redesenho do controlador traz a tela do amp de volta por 3 s. Com as telas de
-informação ligadas (info.py recebe, screens.py escolhe), o display mostra também a agulha
-(no toca-discos), e a qualidade do Bluetooth (na DAB). The standby clock was removed on 2026-11-16.
+With the VU enabled in the settings (vu.py), the two lines become the L and R bars while
+music is playing; each controller redraw brings the amp screen back for 3 s. With the info
+screens enabled (info.py receives, screens.py chooses), the display also shows the stylus
+(on the turntable) and the Bluetooth quality (on DAB). The standby clock was removed on 2026-11-16.
 
-Publica o estado na rede (web.py; o cliente é a app do repositório amp-link), com /bus e
-atualização pelo Wi-Fi, como a escuta. Sem Wi-Fi, o display continua funcionando.
+Publishes the state on the network (web.py; the client is the app in the amp-link
+repository), with /bus and updates over Wi-Fi, like the listener. Without Wi-Fi, the
+display keeps working.
 
-Comanda o amp pela linha do IR, liga o amp quando alguém gira o volume em standby (ir.py) e
-aperta o botão Function por dentro (panel.py). Os ajustes diretos estão em control.py.
+Commands the amp over the IR line, turns the amp on when someone turns the volume knob in
+standby (ir.py) and presses the Function button from inside (panel.py). The direct
+settings are in control.py.
 
-Rodar pelo computador:  .venv/bin/mpremote run firmware/proxy.py
-Ou sozinho, ao ligar o Pico: main.py importa escuta.py, que importa este arquivo.
+Run from the computer:  .venv/bin/mpremote run firmware/proxy.py
+Or on its own, when the Pico powers up: main.py imports escuta.py, which imports this file.
 """
 
-# Primeiro de tudo: o controlador fica parado, perguntando "ocupado?", até o Pico
-# responder. O Sniffer vem antes do Responder (ver busy.py).
+# First of all: the controller sits still, asking "busy?", until the Pico answers.
+# The Sniffer comes before the Responder (see busy.py).
 from sniffer import Sniffer
 sniffer = Sniffer()
 import busy
 responder = busy.Responder()
-# Logo depois: tira o pull-down do GP15, que carregaria a linha do IR (ir.py).
+# Right after: remove the pull-down on GP15, which would load the IR line (ir.py).
 import ir
 remote = ir.Remote()
 import panel
@@ -54,48 +56,49 @@ from lcd1602 import Lcd1602
 from web import Publisher
 from wifi import Wifi
 
-# Uma tela está completa quando o controlador fica este tempo sem escrever
-# (ele redesenha as duas linhas em cerca de 8,5 ms, com uma escrita a cada ~115 µs).
+# A screen is complete when the controller goes this long without writing
+# (it redraws both lines in about 8.5 ms, with one write every ~115 µs).
 QUIET_US = 2000
-REFRESH_MS = 30_000                     # redesenha tudo de vez em quando (ruído nos fios)
-AMP_HOLD_MS = 3000                      # com o VU ligado, a tela do amp fica 3 s depois de cada redesenho
-PICK_MS = 100                           # escolhe a tela no máximo a cada 100 ms (ou a cada quadro/pacote)
-OWN_REDRAW_MS = 250                     # uma tela de informação é recalculada a cada 250 ms (scrolling)
-CLOCK_EVERY_S = 6 * 3600                # acerta o relógio pela internet a cada 6 h
-D7 = 1 << 10                            # o D7 na palavra do sniffer (hd44780.py)
+REFRESH_MS = 30_000                     # redraw everything now and then (noise on the wires)
+AMP_HOLD_MS = 3000                      # with the VU on, the amp screen stays 3 s after each redraw
+PICK_MS = 100                           # choose the screen at most every 100 ms (or on each frame/packet)
+OWN_REDRAW_MS = 250                     # an info screen is recomputed every 250 ms (scrolling)
+CLOCK_EVERY_S = 6 * 3600                # set the clock from the internet every 6 h
+D7 = 1 << 10                            # D7 in the sniffer word (hd44780.py)
 
-lcd = Lcd1602()                         # já limpa o display
-texts = names.load()                    # textos personalizados (names.py)
+lcd = Lcd1602()                         # already clears the display
+texts = names.load()                    # custom texts (names.py)
 state = AmpState(texts["inputs"])
 remote.standby = lambda: state.power == "standby"
 control = Control(state, remote, front_panel)
 bus = Bus()
-# O Pico pode ligar depois do controlador ter gravado os desenhos (ao ligar o amp):
-# começa com os das capturas, e o modelo troca se o controlador gravar outros.
+# The Pico may power up after the controller has written the characters (when the amp
+# powers on): start with the ones from the captures; the model swaps them if the
+# controller writes others.
 bus.lcd.cgram[:] = bytes(b for rows in s.CGRAM for b in rows)
 log = BusLog(bus)
-net = Wifi(model="sp103", hostname="sp103", prefix="SP103")   # rede de casa, configuração e descoberta
+net = Wifi(model="sp103", hostname="sp103", prefix="SP103")   # home network, setup and discovery
 pub = None
 wifi_ok = False
-listen_ticks = 0                        # voltas da escuta: mostra que ela não travou
-busy_high = 0                           # leituras em que o controlador viu "ocupado"
-answered = False                        # já houve uma leitura com "livre" (o Responder no ar)
-shown = [None, None]                    # o que está no display do amp agora
+listen_ticks = 0                        # listener loop count: shows it has not hung
+busy_high = 0                           # reads in which the controller saw "busy"
+answered = False                        # there has been a read with "free" (the Responder is up)
+shown = [None, None]                    # what is on the amp's display now
 shown_cgram = None
 shown_on = None
 last_full = time.ticks_ms()
 vu = vu_meter.Vu()
 info = info_feed.Info()
 screens = screens_mod.Screens(info)
-own = None                              # a tela própria no display ("vu", "stylus"...); None = a do amp
-own_at = time.ticks_ms()                # quando ela foi desenhada
-amp_until = time.ticks_ms()             # até aqui, a tela do amp tem a vez
+own = None                              # our own screen on the display ("vu", "stylus"...); None = the amp's
+own_at = time.ticks_ms()                # when it was drawn
+amp_until = time.ticks_ms()             # until then, the amp screen has the turn
 
 
 def configure_feeds(cfg):
-    """Aplica as configurações do VU e das telas. No modo fixo o VU nem pede quadros. Os
-    pacotes da fonte vêm sempre que há uma fonte, mesmo com as telas desligadas: deles sai
-    o nome do streaming na tela do amp ("AirPlay" no lugar do nome da entrada DAB)."""
+    """Apply the VU and screen settings. In fixed mode the VU does not even request frames.
+    Source packets come whenever there is a source, even with the screens off: they provide
+    the streaming name on the amp screen ("AirPlay" in place of the DAB input name)."""
     screens.configure(cfg["info"])
     vu_cfg = dict(cfg["vu"])
     vu_cfg["on"] = vu_cfg["on"] and screens.vu_allowed()
@@ -108,9 +111,9 @@ configure_feeds(texts)
 
 
 def draw(full=False):
-    """Põe no display do amp a tela do controlador, com os textos personalizados e o nome
-    do streaming tocando. Só manda o que mudou; full=True resincroniza e reescreve tudo
-    (sem apagar a tela)."""
+    """Put the controller's screen on the amp's display, with the custom texts and the name
+    of the stream playing. Sends only what changed; full=True resyncs and rewrites
+    everything (without clearing the screen)."""
     global shown_cgram, shown_on, last_full, own
     own = None
     m = bus.lcd
@@ -121,7 +124,7 @@ def draw(full=False):
     line1, line2 = m.lines()
     label = screens.stream_label(time.ticks_ms())
     lines = names.rewrite(line1, line2, texts, label)
-    # "ᛒ Bluetooth" usa o desenho 7, que as telas do controlador não usam (só o 0, a caixa).
+    # "ᛒ Bluetooth" uses character 7, which the controller's screens do not use (only 0, the box).
     bt = label == screens_mod.STREAM_NAMES["bluetooth"] and lines[1].startswith(label)
     cgram = screens_mod.with_bt_glyph(m.cgram) if bt else bytes(m.cgram)
     if cgram != shown_cgram:
@@ -138,9 +141,9 @@ def draw(full=False):
 
 
 def show_own(key, ms, full=False):
-    """Põe no display uma tela própria: o VU ou uma tela de informação. Os desenhos dela
-    tomam o lugar dos do controlador; o draw() seguinte grava os do controlador de volta
-    (o shown_cgram muda). Só manda as linhas que mudaram."""
+    """Put one of our own screens on the display: the VU or an info screen. Its characters
+    replace the controller's; the next draw() writes the controller's back (shown_cgram
+    changes). Sends only the lines that changed."""
     global shown_cgram, last_full, own, own_at
     own, own_at = key, ms
     if full:
@@ -160,7 +163,7 @@ def show_own(key, ms, full=False):
 
 
 def set_texts(cfg):
-    """Chamado pelo PUT /names: valida, guarda na flash e aplica na hora."""
+    """Called by PUT /names: validates, saves to flash and applies at once."""
     global texts
     texts = names.validate(cfg)
     names.save(texts)
@@ -182,14 +185,14 @@ async def listen():
     picked_at = time.ticks_ms()
     key = None
     clears = 0
-    clears_seen = 0                     # o bus.clears na tela anterior
+    clears_seen = 0                     # bus.clears at the previous screen
     while True:
         n = 0
         ms = time.ticks_ms()
         for word in sniffer.read():
             if word & RW:
-                # Antes do primeiro "livre", o "ocupado" é só o Pico ainda ligando (o sniffer
-                # começa uns ms antes do Responder). Depois, é falha do Responder: deve ficar em 0.
+                # Before the first "free", "busy" is just the Pico still starting up (the sniffer
+                # starts a few ms before the Responder). After that it is a Responder failure: it should stay at 0.
                 if not word & D7:
                     answered = True
                 elif answered:
@@ -212,24 +215,24 @@ async def listen():
             draw()
             cleared, clears_seen = bus.clears != clears_seen, bus.clears
             if state.update(screen[0], screen[1], time.ticks_ms(), cleared):
-                pub.changed()           # sem print aqui: girar o volume dá vários por segundo
+                pub.changed()           # no print here: turning the volume gives several per second
             log.screen(ms, state.screen != "unknown")
         elif not n and quiet and time.ticks_diff(ms, last_full) > REFRESH_MS:
             if own:
                 show_own(own, ms, full=True)
             else:
                 draw(full=True)
-        # Telas próprias (VU e informação): só com o display ligado e a tela do amp fora da
-        # vez. A escolha é barata, mas roda no máximo a cada PICK_MS, ou quando chega um
-        # quadro do VU ou um pacote das telas. Um erro aqui desliga o VU e as telas e mantém
-        # o display do amp: com eles salvos ligados, um erro que derrubasse o programa faria
-        # o Pico reiniciar sem parar.
+        # Our own screens (VU and info): only with the display on and the amp screen not
+        # having the turn. Choosing is cheap, but runs at most every PICK_MS, or when a VU
+        # frame or a screens packet arrives. An error here turns off the VU and the screens
+        # and keeps the amp display: with them saved as on, an error that crashed the program
+        # would make the Pico reboot endlessly.
         try:
             new_frame = vu.poll(ms)
             new_info = info.poll(ms)
             if time.ticks_diff(ms, amp_until) < 0 or not bus.lcd.display_on:
-                key = None                  # a tela do amp tem a vez (conferido a cada volta)
-                picked_at = time.ticks_add(ms, -PICK_MS)   # escolhe logo que ela sair
+                key = None                  # the amp screen has the turn (checked on every loop)
+                picked_at = time.ticks_add(ms, -PICK_MS)   # choose as soon as it ends
             elif new_frame or new_info or time.ticks_diff(ms, picked_at) >= PICK_MS:
                 picked_at = ms
                 key = screens.pick(ms, state.power == "standby", vu.active(ms), state.input)
@@ -242,7 +245,7 @@ async def listen():
             elif own and not key:
                 draw()
             elif new_info and not own and not bus.pending:
-                draw()                  # o streaming começou ou parou: o nome da entrada muda
+                draw()                  # streaming started or stopped: the input name changes
         except Exception as e:
             print("screens: turned off after an error:", repr(e))
             vu.error = screens.error = repr(e)
@@ -261,33 +264,34 @@ def wifi_result(ok, info):
     global wifi_ok
     wifi_ok = ok
     if not ok:
-        print("Wi-Fi failed: offline mode")     # o display do amp não mostra avisos
+        print("Wi-Fi failed: offline mode")     # the amp display shows no warnings
     else:
         asyncio.create_task(clock_task())
 
 
 async def clock_task():
-    """Acerta o relógio pela internet (NTP), para o registro do barramento ter horário."""
+    """Set the clock from the internet (NTP), so the bus log has timestamps."""
     import ntptime
     while True:
         try:
-            ntptime.settime()                   # o relógio do Pico fica em UTC
-            # time.time() só tem segundos: espera o segundo virar para casar com o ticks_ms.
+            ntptime.settime()                   # the Pico's clock runs in UTC
+            # time.time() has only seconds: wait for the second to tick over to match ticks_ms.
             t0 = time.time()
             while time.time() == t0:
                 await asyncio.sleep_ms(5)
             log.set_clock(time.time(), time.ticks_ms())
             print("clock set (UTC):", time.gmtime()[:6])
             await asyncio.sleep(CLOCK_EVERY_S)
-        except Exception as e:                  # sem internet: tenta de novo em 1 min
+        except Exception as e:                  # no internet: try again in 1 min
             print("clock:", e)
             await asyncio.sleep(60)
 
 
 async def confirm_update():
-    """Versão nova em teste (ota.py): confirma quando ela se mostra saudável. Sem isso,
-    o main.py volta para a versão anterior. Saudável = a escuta roda, o Wi-Fi conectou e
-    o servidor respondeu a alguém (o tools/enviar.py pergunta a cada 2 s), por 20 s seguidos."""
+    """New version on trial (ota.py): confirm it once it proves healthy. Without this,
+    main.py rolls back to the previous version. Healthy = the listener runs, Wi-Fi has
+    connected and the server has answered someone (tools/enviar.py polls every 2 s), for
+    20 s in a row."""
     if not ota.in_trial():
         return
     start = time.ticks_ms()
@@ -311,11 +315,11 @@ async def main():
                             "/wifi": net.handle, "/": net.page})
     log.clear(time.ticks_ms())
     asyncio.create_task(net.task(wifi_result))
-    await asyncio.sleep(0.1)            # o Wi-Fi liga antes do servidor abrir o socket
-    await pub.serve()                   # atende assim que houver rede
+    await asyncio.sleep(0.1)            # Wi-Fi starts before the server opens the socket
+    await pub.serve()                   # serves as soon as there is a network
     asyncio.create_task(confirm_update())
     asyncio.create_task(remote.watch_knob())
-    await listen()                      # a escuta começa na hora, com ou sem Wi-Fi
+    await listen()                      # the listener starts right away, with or without Wi-Fi
 
 
 asyncio.run(main())

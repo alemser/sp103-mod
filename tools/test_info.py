@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Testa no computador as telas de informação: firmware/info.py (o pacote "NP"),
-firmware/screens.py (quem aparece e o texto) e a configuração (names.py "info").
+"""Tests the info screens on the computer: firmware/info.py (the "NP" packet),
+firmware/screens.py (which one shows and its text) and the settings (names.py "info").
 
     python3 tools/test_info.py
 """
@@ -32,7 +32,7 @@ fails = 0
 def check(ok, what):
     global fails
     fails += not ok
-    print("%-5s %s" % ("ok" if ok else "FALHA", what))
+    print("%-5s %s" % ("ok" if ok else "FAIL", what))
 
 
 def packet(fields, playing=True):
@@ -48,21 +48,21 @@ def cfg(**kw):
     return names.validate({"info": dict({"on": True}, **kw)})["info"]
 
 
-# --- info.py: o pacote ---------------------------------------------------------
+# --- info.py: the packet ---------------------------------------------------------
 i = info.Info()
 i.on = True
 i.feed(packet(time_a4(161, 544)), 1000)
 check(i.data["artist"] == "Pink Floyd" and i.data["stylus_hours"] == 312 and i.data["stylus_wear"] == 62,
-      "lê os campos do pacote")
-check(i.playing and i.stream_seq == 0, "tocando; sem streaming")
+      "reads the packet's fields")
+check(i.playing and i.stream_seq == 0, "playing; no streaming")
 i.feed(packet(time_a4(161, 544), playing=False, ), 2000)
-check(not i.playing, "parou")
+check(not i.playing, "stopped")
 i.feed(packet(["x"]), 3000)
-check(i.data["stylus_hours"] is None, "campos que faltam no fim: None")
+check(i.data["stylus_hours"] is None, "fields missing at the end: None")
 i.feed(packet(time_a4(10, 20)[:9] + ["abc", "62"]), 3500)
-check(i.data["stylus_hours"] is None, "número estragado: None")
-check(i.fresh(3500 + info.STALE_MS - 1) and not i.fresh(3500 + info.STALE_MS), "sem pacote por 15 s: não vale mais")
-check(set(i.status(3500)) == {"on", "packets", "last_packet_ms", "playing", "stream"}, "o estado para o app")
+check(i.data["stylus_hours"] is None, "broken number: None")
+check(i.fresh(3500 + info.STALE_MS - 1) and not i.fresh(3500 + info.STALE_MS), "no packet for 15 s: no longer valid")
+check(set(i.status(3500)) == {"on", "packets", "last_packet_ms", "playing", "stream"}, "the status for the app")
 
 
 class FakeSock:
@@ -87,16 +87,16 @@ class FakeSock:
 info.socket = types.SimpleNamespace(socket=FakeSock, AF_INET=2, SOCK_DGRAM=2)
 i = info.Info()
 i.configure(True, "192.168.178.99")
-check(not i.poll(0) and i.sock.sent == [(b"SUB2\x02", ("192.168.178.99", 7091))], "pede só as telas, à fonte")
+check(not i.poll(0) and i.sock.sent == [(b"SUB2\x02", ("192.168.178.99", 7091))], "asks the source for the screens only")
 i.sock.queue += [b"lixo", "NP\x01\x01Björk".encode("utf-8"), packet(time_a4(1, 2))]
-check(i.poll(100) and i.packets == 1, "ignora lixo e pacote fora do ASCII")
+check(i.poll(100) and i.packets == 1, "ignores garbage and non-ASCII packets")
 i.configure(False, "192.168.178.99")
-check(i.sock is None and not i.poll(200) and not i.fresh(200), "desligado: fecha e não pede")
+check(i.sock is None and not i.poll(200) and not i.fresh(200), "off: closes and doesn't ask")
 
-# --- screens.py: textos ---------------------------------------------------------
-check(screens.lr("Side A", "track 4/5") == "Side A track 4/5", "esquerda e direita em 16")
-check(screens.bar(0.62, 12) == chr(4) * 7 + chr(1) + " " * 4, "barra de 62 % em 12 células")
-check(screens.bar(0, 4) == "    " and screens.bar(1.5, 2) == chr(4) * 2, "barra vazia e cheia")
+# --- screens.py: texts ---------------------------------------------------------
+check(screens.lr("Side A", "track 4/5") == "Side A track 4/5", "left and right in 16")
+check(screens.bar(0.62, 12) == chr(4) * 7 + chr(1) + " " * 4, "62 % bar in 12 cells")
+check(screens.bar(0, 4) == "    " and screens.bar(1.5, 2) == chr(4) * 2, "empty and full bar")
 
 
 def make(**kw):
@@ -108,116 +108,116 @@ def make(**kw):
 
 
 i, s = make(mode="fixed")
-check(not s.vu_allowed(), "fixo: o VU não entra")
+check(not s.vu_allowed(), "fixed: the VU doesn't come in")
 i.feed(packet(time_a4(161, 544)), 0)
-check(s.pick(0, False, True, "PHONO") == "stylus", "fixo: a agulha no toca-discos")
-check(s.pick(10000, False, True, "PHONO") == "stylus", "  o tempo todo")
-check(s.pick(10000, False, True, "CD") is None, "fixo: noutra entrada, a tela do amp")
-check(s.lines("stylus", 0) == ("Stylus     312 h", chr(4) * 7 + chr(1) + "     62%"), "a tela da agulha")
+check(s.pick(0, False, True, "PHONO") == "stylus", "fixed: the stylus on the turntable")
+check(s.pick(10000, False, True, "PHONO") == "stylus", "  all the time")
+check(s.pick(10000, False, True, "CD") is None, "fixed: on another input, the amp's screen")
+check(s.lines("stylus", 0) == ("Stylus     312 h", chr(4) * 7 + chr(1) + "     62%"), "the stylus screen")
 i.feed(packet(time_a4(161, 544)[:9] + ["320", "95"]), 100)
-check(s.lines("stylus", 100)[0] == "Replace stylus  ", "agulha gasta: o aviso")
+check(s.lines("stylus", 100)[0] == "Replace stylus  ", "worn stylus: the warning")
 i.feed(packet(time_a4(161, 544)[:9] + ["", ""]), 200)
-check(s.pick(200, False, True, "PHONO") is None, "sem os dados da agulha: a tela do amp")
+check(s.pick(200, False, True, "PHONO") is None, "without the stylus data: the amp's screen")
 check(s.pick(200, True, False) is None, "standby: the amp's own screen (no clock since 2026-11-16)")
 s.configure(cfg(mode="fixed"))
-check(s.pick(400 + info.STALE_MS, False, True) == "vu", "sem dados: o VU, se tiver música")
+check(s.pick(400 + info.STALE_MS, False, True) == "vu", "no data: the VU, if there is music")
 
 i, s = make(mode="temp", secs=8, turntable=["TUNER"])
-check(s.vu_allowed(), "temporário: o VU pode entrar")
+check(s.vu_allowed(), "temporary: the VU may come in")
 playing_a4 = packet(time_a4(0, 900))
 stopped = packet(time_a4(0, 900), playing=False)
 i.feed(stopped, 0)
-check(s.pick(0, False, True, "CD") == "vu", "CD: sem a agulha")
-check(s.pick(1000, False, True, "TUNER") == "stylus", "passou para o toca-discos: a agulha")
+check(s.pick(0, False, True, "CD") == "vu", "CD: no stylus")
+check(s.pick(1000, False, True, "TUNER") == "stylus", "switched to the turntable: the stylus")
 check(s.pick(8999, False, True, "TUNER") == "stylus" and s.pick(9000, False, True, "TUNER") == "vu",
-      "  por 'secs' (8 s), depois o VU")
-check(s.pick(20000, False, False, "TUNER") is None, "  sem VU, a tela do amp")
+      "  for 'secs' (8 s), then the VU")
+check(s.pick(20000, False, False, "TUNER") is None, "  without the VU, the amp's screen")
 i.feed(playing_a4, 30000)
-check(s.pick(30000, False, True, "TUNER") == "stylus", "o disco começou a tocar: a agulha de novo")
+check(s.pick(30000, False, True, "TUNER") == "stylus", "the record started playing: the stylus again")
 i.feed(playing_a4, 35000)
-check(s.pick(40000, False, True, "TUNER") == "vu", "o mesmo disco tocando: não volta")
+check(s.pick(40000, False, True, "TUNER") == "vu", "the same record playing: doesn't come back")
 i.feed(packet(time_a4(0, 900, title="Money", pos="B1", track="1")), 45000)
-check(s.pick(45000, False, True, "TUNER") == "vu", "faixa nova: não volta")
+check(s.pick(45000, False, True, "TUNER") == "vu", "new track: doesn't come back")
 
 i, s = make(mode="temp", turntable=["PHONO"])
-check(s.pick(0, False, True, "PHONO") == "vu", "sem dados ainda: o VU")
+check(s.pick(0, False, True, "PHONO") == "vu", "no data yet: the VU")
 i.feed(stopped, 500)
-check(s.pick(500, False, True, "PHONO") == "stylus", "a entrada já era o toca-discos antes do primeiro pacote: conta")
+check(s.pick(500, False, True, "PHONO") == "stylus", "the input was already the turntable before the first packet: counts")
 i, s = make(mode="temp", show=["quality"], turntable=["PHONO"])
 i.feed(stopped, 0)
-check(s.pick(0, False, True, "PHONO") == "vu", "agulha desmarcada: não aparece")
-check(cfg(turntable=["TUNER", "PHONO"])["turntable"] == ["PHONO", "TUNER"], "as entradas do toca-discos na ordem do amp")
+check(s.pick(0, False, True, "PHONO") == "vu", "stylus unchecked: doesn't show")
+check(cfg(turntable=["TUNER", "PHONO"])["turntable"] == ["PHONO", "TUNER"], "the turntable inputs in the amp's order")
 s.configure(cfg(on=False))
-check(s.pick(80000, False, True) == "vu" and s.pick(80000, True, False) is None, "telas desligadas: como antes")
+check(s.pick(80000, False, True) == "vu" and s.pick(80000, True, False) is None, "screens off: as before")
 
-# --- names.py: a configuração ------------------------------------------------------
+# --- names.py: the settings ------------------------------------------------------
 d = names.validate({})["info"]
 check(d == {"on": False, "mode": "temp", "show": ["stylus", "quality"], "secs": 8, "source": "",
             "turntable": ["PHONO", "TUNER"]},
-      "padrão: desligadas")
+      "default: off")
 old = cfg(mode="fixed", fixed="pos", show=["track", "pos", "side", "stylus"], alert=False, scroll=True)
 check(old["show"] == ["stylus"] and "fixed" not in old and "alert" not in old and "scroll" not in old,
-      "names.json antigo: as telas que saíram e as opções delas são ignoradas")
-check(names.INFO_KINDS == screens.KINDS, "names.py e screens.py conhecem as mesmas telas")
+      "old names.json: the removed screens and their options are ignored")
+check(names.INFO_KINDS == screens.KINDS, "names.py and screens.py know the same screens")
 
-# --- streaming: o nome na tela do amp e a tela "quality" ---------------------------
-EMPTY11 = [""] * 11                     # nada do groove-identity: o disco não toca
+# --- streaming: the name on the amp's screen and the "quality" screen ---------------------------
+EMPTY11 = [""] * 11                     # nothing from groove-identity: no record playing
 bt_sbc = packet(EMPTY11 + ["bluetooth", "SBC", "44100", "16", "328"], playing=False)
 airplay = packet(EMPTY11 + ["airplay", "", "44100", "16", ""], playing=False)
 silent = packet(EMPTY11, playing=False)
 
 i, s = make(mode="temp", secs=8)
 i.feed(airplay, 0)
-check(s.stream_label(0) == "AirPlay", "AirPlay tocando: o nome")
+check(s.stream_label(0) == "AirPlay", "AirPlay playing: the name")
 check(names.rewrite("Volume -40.00 dB", "DAB" + " " * 13, names.validate({"inputs": {"DAB": "Streaming"}}), "AirPlay")
-      == ("Volume -40.00 dB", "AirPlay         "), "na tela do amp, \"AirPlay\" no lugar de \"Streaming\"")
+      == ("Volume -40.00 dB", "AirPlay         "), "on the amp's screen, \"AirPlay\" instead of \"Streaming\"")
 check(names.rewrite("Volume -40.00 dB", "DAB" + " " * 13, names.validate({"inputs": {"DAB": "Streaming"}}), None)
-      == ("Volume -40.00 dB", "Streaming       "), "sem streaming: o nome escolhido")
+      == ("Volume -40.00 dB", "Streaming       "), "no streaming: the chosen name")
 check(names.rewrite("Volume -40.00 dB", "CD" + " " * 14, names.validate({}), "AirPlay")[1] == "CD" + " " * 14,
-      "  só na entrada do streaming (DAB)")
-check(s.pick(0, False, False, "DAB") is None, "AirPlay: sem a tela de qualidade (é só do Bluetooth)")
+      "  only on the streaming input (DAB)")
+check(s.pick(0, False, False, "DAB") is None, "AirPlay: no quality screen (Bluetooth only)")
 
 i.feed(bt_sbc, 1000)
-check(s.stream_label(1000) == chr(screens.BT) + " Bluetooth", "Bluetooth: o símbolo e o nome")
-check(s.pick(1000, False, False, "DAB") == "quality", "o Bluetooth começou: a tela de qualidade")
-check(s.lines("quality", 1000) == (chr(screens.BT) + " Bluetooth  SBC", "44.1kHz 16b 328k"), "a tela: %r"
+check(s.stream_label(1000) == chr(screens.BT) + " Bluetooth", "Bluetooth: the symbol and the name")
+check(s.pick(1000, False, False, "DAB") == "quality", "Bluetooth started: the quality screen")
+check(s.lines("quality", 1000) == (chr(screens.BT) + " Bluetooth  SBC", "44.1kHz 16b 328k"), "the screen: %r"
       % (s.lines("quality", 1000),))
 check(s.pick(1000 + 7999, False, False, "DAB") == "quality" and s.pick(1000 + 8000, False, False, "DAB") is None,
-      "  fica 'secs' (8 s) e sai")
+      "  stays 'secs' (8 s) and leaves")
 i.feed(bt_sbc, 10000)
-check(s.pick(10000, False, False, "DAB") is None, "pacote repetido: não volta")
+check(s.pick(10000, False, False, "DAB") is None, "repeated packet: doesn't come back")
 i.feed(packet(EMPTY11 + ["bluetooth", "AAC", "48000", "16", "256"], playing=False), 12000)
 check(s.pick(12000, False, False, "DAB") == "quality" and s.lines("quality", 12000)[1] == "48kHz 16b   256k",
-      "a qualidade mudou: a tela volta")
-check(s.pick(12000, False, False, "PHONO") is None, "outra entrada: sem a tela de qualidade")
+      "the quality changed: the screen comes back")
+check(s.pick(12000, False, False, "PHONO") is None, "another input: no quality screen")
 i.feed(silent, 13000)
-check(s.stream_label(13000) is None, "o streaming parou: sem nome")
-check(s.stream_label(13000 + info.STALE_MS) is None, "sem pacotes: sem nome")
+check(s.stream_label(13000) is None, "streaming stopped: no name")
+check(s.stream_label(13000 + info.STALE_MS) is None, "no packets: no name")
 
 i, s = make(mode="fixed")
 i.feed(bt_sbc, 0)
 check(s.pick(0, False, False, "DAB") == "quality" and s.pick(10000, False, False, "DAB") == "quality",
-      "fixo: a tela de qualidade o tempo todo no Bluetooth")
+      "fixed: the quality screen all the time on Bluetooth")
 i, s = make(mode="temp", show=["stylus"])
 i.feed(bt_sbc, 0)
-check(s.pick(0, False, False, "DAB") is None, "temporário sem a tela marcada: não aparece")
+check(s.pick(0, False, False, "DAB") is None, "temporary without the screen checked: doesn't show")
 check(screens.GLYPHS[8 * screens.BT:] == screens.BT_GLYPH and screens.GLYPHS[:8 * screens.BT] ==
-      screens.vu_meter.GLYPHS[:8 * screens.BT], "o símbolo do Bluetooth no desenho 7; os da barra ficam")
-check(cfg(show=["quality", "stylus"])["show"] == ["stylus", "quality"], "as telas marcadas ficam na ordem certa")
-check(cfg(source=" 192.168.178.99 ")["source"] == "192.168.178.99", "IP com espaços")
+      screens.vu_meter.GLYPHS[:8 * screens.BT], "the Bluetooth symbol in glyph 7; the bar's glyphs stay")
+check(cfg(show=["quality", "stylus"])["show"] == ["stylus", "quality"], "the checked screens stay in the right order")
+check(cfg(source=" 192.168.178.99 ")["source"] == "192.168.178.99", "IP with spaces")
 old_clock = cfg(clock=True, utc_offset=5.5, eu_dst=False)
 check(not any(k in old_clock for k in ("clock", "utc_offset", "eu_dst")), "the removed clock's keys are accepted and dropped")
-check(names.validate({"info": {"on": True}})["vu"]["on"] is False, "as telas não mexem no VU")
+check(names.validate({"info": {"on": True}})["vu"]["on"] is False, "the screens don't touch the VU")
 for bad in ({"mode": "always"}, {"show": ["stylus", "lyrics"]}, {"show": "stylus"},
             {"secs": 2}, {"secs": 8.5}, {"secs": True},
             {"source": "oceano.local"}, {"on": "yes"}, {"turntable": ["RADIO"]}, {"turntable": "TUNER"}):
     try:
         names.validate({"info": bad})
-        check(False, "recusa %r" % bad)
+        check(False, "refuses %r" % bad)
     except ValueError:
-        check(True, "recusa %r" % bad)
+        check(True, "refuses %r" % bad)
 
-# udp.py: com o poll (o MicroPython), o recv() só é chamado com pacote na fila.
+# udp.py: with poll (MicroPython), recv() is only called with a packet queued.
 import udp   # noqa: E402
 
 
@@ -244,13 +244,13 @@ i = info.Info()
 i.configure(True, "192.168.178.99")
 for t in range(0, 1000, 10):
     i.poll(t)
-check(CountingSock.recvs == 0 and isinstance(i._poll, FakePoll), "fila vazia: nem chama o recv (sem erro)")
+check(CountingSock.recvs == 0 and isinstance(i._poll, FakePoll), "empty queue: doesn't even call recv (no error)")
 i.sock.queue.append(packet(time_a4(1, 2)))
-check(i.poll(1000) and CountingSock.recvs == 1, "com pacote: lê só ele")
+check(i.poll(1000) and CountingSock.recvs == 1, "with a packet: reads just that one")
 i.configure(False, "192.168.178.99")
-check(i._poll is None, "desligado: larga o poll junto com o socket")
+check(i._poll is None, "off: drops the poll along with the socket")
 udp.select = real_select
-check(udp.poller(FakeSock()) is None and udp.ready(None), "socket sem poll: cai no recv com erro, como antes")
+check(udp.poller(FakeSock()) is None and udp.ready(None), "socket without poll: falls back to recv with an error, as before")
 
-print("\ntudo certo" if not fails else "\n%d falha(s)" % fails)
+print("\nall good" if not fails else "\n%d failure(s)" % fails)
 sys.exit(1 if fails else 0)

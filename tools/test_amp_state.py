@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Testa o leitor de telas (firmware/amp_state.py).
+"""Tests the screen reader (firmware/amp_state.py).
 
-Sem argumentos: confere telas escritas à mão (as das capturas, ver docs/descobertas-protocolo.md).
-Com capturas: reproduz cada .lac, entrega cada tela completa ao leitor e mostra o estado quando muda.
+Without arguments: checks hand-written screens (the ones from the captures, see docs/descobertas-protocolo.md).
+With captures: replays each .lac, hands each complete screen to the reader and shows the state when it changes.
 
     python3 tools/test_amp_state.py
     python3 tools/test_amp_state.py captures/04-phono-b.lac captures/15-balance.lac
-    python3 tools/test_amp_state.py --sem-rw captures/13-function-todos.lac
+    python3 tools/test_amp_state.py --no-rw captures/13-function-todos.lac
 """
 
 import argparse
@@ -21,20 +21,20 @@ sys.path.insert(0, os.path.join(HERE, "..", "firmware"))
 import hd44780_decode as hd   # noqa: E402
 from amp_state import AmpState, BOX, parse   # noqa: E402
 
-# Uma tela está completa quando o controlador fica este tempo sem escrever.
+# A screen is complete when the controller goes this long without writing.
 QUIET_US = 2000
 
 B = BOX
 CASES = [
-    # (linha 1, linha 2, tela esperada, campos esperados)
+    # (line 1, line 2, expected screen, expected fields)
     ("Volume -28.75 dB", "PHONO           ", "normal", {"volume_db": -28.75, "input": "PHONO"}),
     ("Volume -15.00 dB", "TAPE/AUX        ", "normal", {"volume_db": -15.0, "input": "TAPE/AUX"}),
     ("Volume -28.75 dB", B * 10 + " " * 6, "volume", {"volume_db": -28.75}),
-    ("Volume -27.75 dB", "PHONO           ", "unknown", {}),          # não é passo de 1,25
-    ("Volume -28.75 dB", "PHO             ", "unknown", {}),          # tela pela metade
+    ("Volume -27.75 dB", "PHONO           ", "unknown", {}),          # not a 1.25 step
+    ("Volume -28.75 dB", "PHO             ", "unknown", {}),          # half-written screen
     ("Bass   2 dB     ", "       <>" + B + "      ", "bass", {"bass_db": 2}),
     ("Bass -10 dB     ", "  " + B * 5 + "<>       ", "bass", {"bass_db": -10}),
-    ("Bass -10 dB     ", "   " + B * 4 + "<>       ", "unknown", {}),  # barra não confere
+    ("Bass -10 dB     ", "   " + B * 4 + "<>       ", "unknown", {}),  # bar doesn't match
     ("Treble   0 dB   ", "       <>       ", "treble", {"treble_db": 0}),
     ("Balance <level> ", "       <>       ", "balance", {"balance": {"side": None, "db": 0.0}}),
     ("Balance -5.00 dB", "       <>" + B + "      ", "balance", {"balance": {"side": "R", "db": -5.0}}),
@@ -54,56 +54,56 @@ def self_test():
         got = parse(l1, l2)
         ok = got == (screen, values)
         bad += not ok
-        print(("ok   " if ok else "FALHA"), repr(l1), repr(l2), "->", got)
-    print(f"\n{len(CASES) - bad} de {len(CASES)} ok")
+        print(("ok   " if ok else "FAIL "), repr(l1), repr(l2), "->", got)
+    print(f"\n{len(CASES) - bad} of {len(CASES)} ok")
     bad += not standby_test()
     bad += not speakers_after_standby_test()
     return bad == 0
 
 
 def speakers_after_standby_test():
-    """Ao sair do standby, o amp volta com speakers ligado, sem mostrar a tela."""
+    """Leaving standby, the amp comes back with speakers on, without showing that screen."""
     blank = " " * 16
     st = AmpState()
     st.update("   Speakers     ", " < OFF >   ON   ", 1)
     st.update("   Loudness     ", "   OFF   < ON > ", 2)
     st.update(blank, blank, 3)
     if st.speakers is not False or st.power != "standby":
-        print("FALHOU: speakers deve seguir OFF no standby", st.speakers, st.power)
+        print("FAILED: speakers should stay OFF in standby", st.speakers, st.power)
         return False
     st.update("Volume -20.00 dB", "CD              ", 4)
     if st.speakers is not True or st.loudness is not True:
-        print("FALHOU: depois do standby", st.speakers, st.loudness)
+        print("FAILED: after standby", st.speakers, st.loudness)
         return False
     return True
 
 
 def standby_test():
-    """Tela em branco = standby; a tela em branco do ligar (com "Clear display") não conta."""
+    """Blank screen = standby; the blank screen at power-on (with "Clear display") doesn't count."""
     blank, vol = " " * 16, ("Volume -20.00 dB", "DAB" + " " * 13)
     st, steps = AmpState(), []
-    steps.append((st.update(blank, blank, 0, cleared=True), st.power, None, "ligando: branco com clear"))
+    steps.append((st.update(blank, blank, 0, cleared=True), st.power, None, "powering on: blank with clear"))
     st.update("    ACOUSTIC    ", "   SOLUTIONS    ", 1)
-    steps.append((True, st.power, "on", "tela de início: ligado"))
+    steps.append((True, st.power, "on", "boot screen: on"))
     st.update(*vol, 2)
-    steps.append((st.update(blank, blank, 3), st.power, "standby", "branco sem clear: standby"))
-    steps.append((True, st.screen, "standby", "a tela se chama standby"))
-    steps.append((True, st.volume_db, -20.0, "o último volume fica guardado"))
-    steps.append((not st.update(blank, blank, 4), st.power, "standby", "branco de novo: nada muda"))
+    steps.append((st.update(blank, blank, 3), st.power, "standby", "blank without clear: standby"))
+    steps.append((True, st.screen, "standby", "the screen is called standby"))
+    steps.append((True, st.volume_db, -20.0, "the last volume is kept"))
+    steps.append((not st.update(blank, blank, 4), st.power, "standby", "blank again: nothing changes"))
     st.update(blank, blank, 5, cleared=True)
-    steps.append((True, st.power, "standby", "ligando de novo: ainda não é 'on'..."))
+    steps.append((True, st.power, "standby", "powering on again: not 'on' yet..."))
     st.update(*vol, 6)
-    steps.append((True, st.power, "on", "...até a primeira tela"))
+    steps.append((True, st.power, "on", "...until the first screen"))
     bad = 0
     for changed, got, want, what in steps:
         ok = changed and got == want
         bad += not ok
-        print(("ok   " if ok else "FALHA"), what, "->", got)
+        print(("ok   " if ok else "FAIL "), what, "->", got)
     return bad == 0
 
 
 def screens(lcd):
-    """As duas linhas da memória do LCD, com os códigos originais (chr(0) = caixa)."""
+    """The two lines of the LCD's memory, with the original codes (chr(0) = box)."""
     return ["".join(chr(lcd.ddram[base + (col + lcd.shift) % 40]) for col in range(16))
             for base in (0x00, 0x40)]
 
@@ -137,21 +137,22 @@ def replay(path, sem_rw):
             pending = False
         last_t = t
         if rw:
-            continue                    # leitura do busy flag: não muda a tela
+            continue                    # busy flag read: doesn't change the screen
         if rs:
             lcd.data(full)
         else:
             lcd.command(full)
         pending = True
     if pending:
-        offer(last_t)                   # fim da captura: a tela pode estar incompleta
+        offer(last_t)                   # end of capture: the screen may be incomplete
     print()
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("capturas", nargs="*")
-    ap.add_argument("--sem-rw", action="store_true", help="fio do RW falhou na captura (ver hd44780_decode.py)")
+    ap.add_argument("capturas", metavar="captures", nargs="*")
+    ap.add_argument("--no-rw", "--sem-rw", dest="sem_rw", action="store_true",
+                    help="the RW wire failed in the capture (see hd44780_decode.py)")
     args = ap.parse_args()
     if not args.capturas:
         sys.exit(0 if self_test() else 1)

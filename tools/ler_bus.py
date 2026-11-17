@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Lê o CSV baixado de http://sp103.local/bus.csv e remonta as telas do amp, com o horário.
+"""Reads the CSV downloaded from http://sp103.local/bus.csv and rebuilds the amp's screens, with timestamps.
 
     python3 tools/ler_bus.py ~/Downloads/sp103-bus-2026-10-24-2115.csv
-    python3 tools/ler_bus.py arquivo.csv --palavras      # também cada palavra, uma por linha
+    python3 tools/ler_bus.py file.csv --words           # also every word, one per line
 
-Usa o mesmo hd44780.Bus do Pico (firmware/hd44780.py), então mostra o que o Pico viu.
-O começo do arquivo costuma cair no meio de uma tela (o registro guarda só as últimas
-palavras); a primeira tela completa vem logo depois.
+Uses the Pico's own hd44780.Bus (firmware/hd44780.py), so it shows what the Pico saw.
+The start of the file usually lands in the middle of a screen (the log keeps only the last
+words); the first complete screen comes right after.
 """
 
 import argparse
@@ -20,11 +20,11 @@ sys.path.insert(0, os.path.join(HERE, "..", "firmware"))
 from amp_state import lcd_text   # noqa: E402
 from hd44780 import Bus, DATA_SHIFT, RS, RW   # noqa: E402
 
-QUIET_MS = 5        # o Pico lê em lotes de ~1 ms; telas seguidas ficam bem mais longe que isso
+QUIET_MS = 5        # the Pico reads in ~1 ms batches; consecutive screens are much further apart than that
 
 
 def words(path):
-    """(horário, ms, palavra) de cada linha do CSV."""
+    """(time, ms, word) for each CSV row."""
     with open(path, newline="") as f:
         for row in csv.DictReader(f):
             word = int(row["byte"], 16) << DATA_SHIFT
@@ -33,7 +33,7 @@ def words(path):
 
 
 def screens(rows):
-    """(horário, linha 1, linha 2) de cada tela completa."""
+    """(time, line 1, line 2) for each complete screen."""
     bus, last, out = Bus(), None, []
     for when, ms, word in rows:
         if bus.pending and last is not None and ms - last[1] > QUIET_MS:
@@ -48,7 +48,7 @@ def screens(rows):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("csv")
-    ap.add_argument("--palavras", action="store_true", help="mostra também cada palavra")
+    ap.add_argument("--words", "--palavras", dest="palavras", action="store_true", help="also show every word")
     args = ap.parse_args()
 
     if args.palavras:
@@ -60,7 +60,7 @@ def main():
     got, bus = screens(words(args.csv))
     for when, l1, l2 in got:
         print("%-23s  %s | %s" % (when, lcd_text(l1), lcd_text(l2)))
-    print("\n%d telas, %d escritas, %d leituras do busy flag, %d 'clear display' (amp ligando)" % (
+    print("\n%d screens, %d writes, %d busy flag reads, %d 'clear display' (amp powering on)" % (
         len(got), bus.writes, bus.reads, bus.clears))
 
 

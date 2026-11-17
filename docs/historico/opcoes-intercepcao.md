@@ -1,86 +1,86 @@
-# Como o Pico pode mudar o texto do display do amp (opções de interceptação)
+# How the Pico can change the amp's display text (interception options)
 
-**Decidido e feito em 2026-10-29: opção 3b, display dessoldado nos pinos 4–14, com o Pico como proxy.** Instalação:
+**Decided and done on 2026-10-29: option 3b, display desoldered at pins 4–14, with the Pico as proxy.** Install:
 `proxy-ligacao.md`.
 
-Este documento resume por que o Pico precisa ficar no meio, as opções analisadas e o que a tentativa "sem corte"
-(2026-10-24 a 10-28) ensinou. O código e os testes dessa tentativa (`escrita.py`, `plano.py`, `refresh.py`,
-`tools/planejador.py` e os `tools/teste_*_pico.py` da escrita) estão no histórico do git, até o commit `6be4eb2`.
+This document sums up why the Pico has to sit in the middle, the options considered and what the "no cut" attempt
+(2026-10-24 to 10-28) taught. The code and tests of that attempt (`escrita.py`, `plano.py`, `refresh.py`,
+`tools/planejador.py` and the writing `tools/teste_*_pico.py`) are in the git history, up to commit `6be4eb2`.
 
-## Por que "sobrescrever em paralelo" não funciona
+## Why "overwrite in parallel" does not work
 
-A ideia era deixar tudo ligado como estava e o Pico reescrever o display logo depois do controlador. Isso não dá, por
-motivo elétrico:
+The idea was to leave everything connected as it was and have the Pico rewrite the display right after the
+controller. That is not possible, for electrical reasons:
 
-- **E (perna 28, P2.7):** no repouso, o controlador segura o E em 0 com força. Se o Pico levantasse o E, os dois
-  brigariam pelo fio.
-- **Dados (pernas 32–39, P0):** no repouso, ficam presos no último byte escrito. Os bits em 0 são segurados com força
-  pelo controlador; os resistores de 4,7 kΩ (R907/R908) só puxam para 5 V os bits em 1. O Pico consegue baixar uma
-  linha, mas não levantar.
+- **E (leg 28, P2.7):** when idle, the controller holds E at 0 strongly. If the Pico raised E, the two would fight over
+  the wire.
+- **Data (legs 32–39, P0):** when idle, they stay latched at the last byte written. Bits at 0 are held strongly by the
+  controller; the 4.7 kΩ resistors (R907/R908) only pull the bits at 1 up to 5 V. The Pico can pull a line down, but
+  not up.
 
-Não existe uma janela em que o Pico escreva sozinho sem brigar com o controlador.
+There is no window in which the Pico can write on its own without fighting the controller.
 
-## O que as fotos mostraram
+## What the photos showed
 
-| Foto | O que mostra |
+| Photo | What it shows |
 |---|---|
-| ![controlador](img/minha-placa/controlador-t9311-sem-soquete.jpg) | O T9311 está **soldado direto na placa, sem soquete** |
-| ![lateral](img/minha-placa/lcd-pinos-lateral.jpg) | O display está preso por uma barra de 16 pinos, soldada nas duas placas, com um **espaçador de plástico** entre elas. As pontas dos pinos sobram acima da placa do display |
-| ![solda](img/minha-placa/lcd-lado-solda-trilhas.jpg) | No lado das soldas, sai **uma trilha de cada pino**, separadas logo depois da solda. Mais adiante elas se juntam num feixe fino até o controlador |
+| ![controller](img/minha-placa/controlador-t9311-sem-soquete.jpg) | The T9311 is **soldered straight to the board, with no socket** |
+| ![side](img/minha-placa/lcd-pinos-lateral.jpg) | The display is held by a 16-pin header, soldered to both boards, with a **plastic spacer** between them. The pin ends stick out above the display board |
+| ![solder](img/minha-placa/lcd-lado-solda-trilhas.jpg) | On the solder side, **one trace leaves each pin**, separate right after the solder joint. Further on they merge into a thin bundle to the controller |
 
-## Opções
+## Options
 
-| # | Opção | Veredito |
+| # | Option | Verdict |
 |---|---|---|
-| 1 | Adaptador no lugar do controlador (soquete "sanduíche" de 40 pinos) | Descartada: o chip está soldado; seria preciso desoldar 40 pernas |
-| 2 | Cortar 11 trilhas no lado das soldas, logo depois dos pinos do display | Possível, sem mexer no display; risco de cortar uma trilha vizinha |
-| 3a | Cortar os pinos entre as placas | Inviável: o espaçador de plástico não deixa o alicate entrar |
-| 3b | Desoldar o display e soldar de novo só os pinos 1–3, 15 e 16; os furos 4–14 recebem os fios do lado do controlador | **Escolhida e feita (2026-10-29)** |
-| — | Escrita "sem corte": o Pico só puxa fios para 0 durante as transações do controlador | Testada e aposentada (abaixo) |
+| 1 | Adapter in place of the controller (40-pin "sandwich" socket) | Discarded: the chip is soldered; 40 legs would have to be desoldered |
+| 2 | Cut 11 traces on the solder side, right after the display pins | Possible, without touching the display; risk of cutting a neighbouring trace |
+| 3a | Cut the pins between the boards | Not feasible: the plastic spacer keeps the cutters from getting in |
+| 3b | Desolder the display and resolder only pins 1–3, 15 and 16; holes 4–14 take the controller-side wires | **Chosen and done (2026-10-29)** |
+| — | "No cut" writing: the Pico only pulls wires to 0 during the controller's transactions | Tested and retired (below) |
 
-Na 3b, cada um dos 11 sinais fica com dois lados:
-- **Controlador → Pico**: os 11 fios (RS, RW, E, D0–D7) em GP2–GP12. O Pico finge ser o display e responde "livre" às
-  leituras do busy flag; sem resposta, o controlador pergunta para sempre.
-- **Pico → display**: só 6 fios (RS, E, D4–D7) em GP16–21, modo 4 bits, com o RW do display no GND. O display nunca manda
-  sinal de volta, então não entra 5 V no Pico por esse lado.
-- **Para voltar ao original**: 11 jumpers ligando cada fio do controlador ao do display.
+With 3b, each of the 11 signals gets two sides:
+- **Controller → Pico**: the 11 wires (RS, RW, E, D0–D7) on GP2–GP12. The Pico pretends to be the display and answers
+  "free" to the busy flag reads; without an answer, the controller keeps asking forever.
+- **Pico → display**: only 6 wires (RS, E, D4–D7) on GP16–21, 4-bit mode, with the display's RW on GND. The display
+  never sends a signal back, so no 5 V reaches the Pico on this side.
+- **To go back to the original**: 11 jumpers connecting each controller wire to the display wire.
 
-## A tentativa sem corte (2026-10-24 a 10-28)
+## The no-cut attempt (2026-10-24 to 10-28)
 
-O Pico ficava em paralelo, com o display ligado ao controlador, e só puxava fios para 0. Os quatro truques funcionaram
-no amp:
+The Pico sat in parallel, with the display connected to the controller, and only pulled wires to 0. All four tricks
+worked on the amp:
 
-| Truque | Como |
+| Trick | How |
 |---|---|
-| Trocar bits de uma letra | zerar bits do caractere que o controlador manda ("PHONO" → "PHONE") |
-| Desenhos próprios | ao ligar, zerar pontos dos desenhos das barras (CGRAM) para virarem letras |
-| Mover letras | numa leitura do busy flag, puxar o RW: o LCD recebe um comando "vá para..." com os bits do último byte |
-| Congelar células | transformar uma escrita em comando 0x00, que o LCD ignora |
+| Change bits of a letter | clear bits of the character the controller sends ("PHONO" → "PHONE") |
+| Custom glyphs | at power-on, clear dots in the bar glyphs (CGRAM) so they become letters |
+| Move letters | on a busy flag read, pull RW: the LCD receives a "go to..." command with the bits of the last byte |
+| Freeze cells | turn a write into command 0x00, which the LCD ignores |
 
-Mas o Pico só consegue **apagar bits** dos bytes que o controlador já manda. Por isso:
+But the Pico can only **clear bits** of the bytes the controller already sends. So:
 
-- Só nomes curtos e escolhidos com cuidado saíam (REGA, TAPE). Nomes como "Rega Planar 2" eram impossíveis.
-- O nome só aparecia a partir do segundo redesenho de uma entrada: no primeiro toque, ao ligar e depois do menu Function,
-  aparecia o nome original.
-- DAB e DVD só se distinguem pela segunda letra. O plano seguro para DAB → "Air" não existia, e em trocas rápidas
-  apareceram telas misturadas (`TUGE`, `TEGA`).
+- Only short, carefully chosen names came out (REGA, TAPE). Names like "Rega Planar 2" were impossible.
+- The name only appeared from the second redraw of an input on: on the first press, at power-on and after the Function
+  menu, the original name appeared.
+- DAB and DVD only differ in the second letter. There was no safe plan for DAB → "Air", and quick switches produced
+  mixed-up screens (`TUGE`, `TEGA`).
 
-Com o proxy, nenhum desses limites existe: qualquer texto de até 16 caracteres, desde a primeira tela.
+With the proxy, none of these limits exist: any text up to 16 characters, from the first screen.
 
-### O que ficou aprendido
+### What was learned
 
-Os fatos sobre o controlador estão em `descobertas-protocolo.md` ("Elétrica das portas e leitura do busy flag"): RS e
-RW são fracos no 1, o E e os dados em 0 são fortes, o controlador solta só o D7 para ler o busy flag e pergunta de novo
-se lê "ocupado", e o LCD ignora o comando 0x00.
+The facts about the controller are in `descobertas-protocolo.md` ("Port electrics and busy flag reads"): RS and RW are
+weak at 1, E and the data at 0 are strong, the controller releases only D7 to read the busy flag and asks again if it
+reads "busy", and the LCD ignores command 0x00.
 
-Armadilhas do PIO no MicroPython, que custaram tentativas e valem para qualquer programa novo:
+PIO pitfalls in MicroPython, which cost attempts and apply to any new program:
 
-| Armadilha | Como evitar |
+| Pitfall | How to avoid it |
 |---|---|
-| `mov(pindirs, ...)` gera o mesmo código que `mov(exec, ...)`: o PIO executa o valor como instrução | mudar a direção dos pinos só com `out(pindirs, n)` ou `set(pindirs, n)` |
-| Dentro de uma função `@rp2.asm_pio`, as variáveis do arquivo não existem (`NameError`) | escrever os números direto (por exemplo, `wait(1, gpio, 2)`) |
-| `autopull=True` faz o `pull()` não fazer nada se o OSR estiver cheio | sem autopull; `pull(ifempty)` quando precisar |
-| O padrão é `out_shiftdir=SHIFT_LEFT`: `out()` pega os bits do topo do OSR | `out_shiftdir=SHIFT_RIGHT` quando a máscara está nos bits baixos |
-| Ruído no E com fios longos: pulsos falsos de até ~1 µs | aceitar um pulso só depois de 3 µs em 1 (o filtro do `sniffer.py`) |
-| Cada bloco PIO tem só 32 instruções | o sniffer fica no PIO0; o `busy.py`, no PIO1 |
-| `Pin(n, Pin.IN)` tira o pino do PIO | criar o `Sniffer` antes do `Responder` do `busy.py` |
+| `mov(pindirs, ...)` generates the same code as `mov(exec, ...)`: the PIO executes the value as an instruction | change pin direction only with `out(pindirs, n)` or `set(pindirs, n)` |
+| Inside an `@rp2.asm_pio` function, the module's variables do not exist (`NameError`) | write the numbers directly (for example, `wait(1, gpio, 2)`) |
+| `autopull=True` makes `pull()` do nothing if the OSR is full | no autopull; `pull(ifempty)` when needed |
+| The default is `out_shiftdir=SHIFT_LEFT`: `out()` takes the bits from the top of the OSR | `out_shiftdir=SHIFT_RIGHT` when the mask is in the low bits |
+| Noise on E with long wires: false pulses of up to ~1 µs | accept a pulse only after 3 µs at 1 (the `sniffer.py` filter) |
+| Each PIO block has only 32 instructions | the sniffer sits on PIO0; `busy.py`, on PIO1 |
+| `Pin(n, Pin.IN)` takes the pin away from the PIO | create the `Sniffer` before the `busy.py` `Responder` |

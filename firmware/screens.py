@@ -1,27 +1,27 @@
-"""Quem aparece no display, e o texto das telas de informação.
+"""What appears on the display, and the text of the info screens.
 
-O proxy.py pergunta pick() quando a tela do amp não tem a vez (3 s depois de cada
-redesenho do controlador). São duas telas, cada uma na sua entrada:
+proxy.py calls pick() when the amp screen does not have the turn (3 s after each
+controller redraw). There are two screens, each on its own input:
 
-- "stylus": horas e desgaste da agulha, só nas entradas do toca-discos ("turntable":
+- "stylus": stylus hours and wear, only on the turntable inputs ("turntable":
   PHONO, TUNER...).
-- "quality": a qualidade do Bluetooth (codec, sample rate, bits, bitrate), só na entrada
-  do streaming (amp_state.STREAMING_INPUT) com o Bluetooth tocando.
+- "quality": the Bluetooth quality (codec, sample rate, bits, bitrate), only on the
+  streaming input (amp_state.STREAMING_INPUT) with Bluetooth playing.
 
-Em ordem:
+In order:
 
 1. Standby: the amp's own screen (blank). (The standby clock was removed on 2026-11-16: not useful.)
-2. Modo fixo: a tela marcada da entrada de agora, o tempo todo. O VU não entra.
-3. Modo temporário: a tela marcada entra por "secs". A agulha, quando o amp passa para
-   uma entrada do toca-discos e quando o disco começa a tocar; a qualidade, quando o
-   Bluetooth começa ou a qualidade muda. Depois o VU, se ligado; senão, a tela do amp.
-4. Sem dados: o VU (que só aparece com música) ou a tela do amp.
+2. Fixed mode: the selected screen for the current input, all the time. The VU stays out.
+3. Temporary mode: the selected screen comes in for "secs". The stylus, when the amp
+   switches to a turntable input and when the record starts playing; the quality, when
+   Bluetooth starts or the quality changes. Then the VU, if on; otherwise, the amp screen.
+4. No data: the VU (which only shows with music) or the amp screen.
 
-O nome do streaming na tela do amp ("AirPlay", "Bluetooth") é o stream_label(), que o
-proxy.py passa ao names.rewrite().
+The streaming name on the amp screen ("AirPlay", "Bluetooth") is stream_label(), which
+proxy.py passes to names.rewrite().
 
-Os textos são em inglês, como os do amp. As barras usam os desenhos do VU (vu.GLYPHS); o
-desenho 7 (o clip do VU, que as telas não usam) vira o símbolo do Bluetooth.
+The texts are in English, like the amp's. The bars use the VU characters (vu.GLYPHS);
+character 7 (the VU clip, which the screens do not use) becomes the Bluetooth symbol.
 """
 
 import time
@@ -30,15 +30,15 @@ import vu as vu_meter
 from amp_state import STREAMING_INPUT
 
 KINDS = ("stylus", "quality")
-STYLUS_WARN = 90                # % de desgaste: "Replace stylus"
-BT = 7                          # o código do símbolo do Bluetooth (ᛒ) nos desenhos próprios
+STYLUS_WARN = 90                # % wear: "Replace stylus"
+BT = 7                          # the code of the Bluetooth symbol (ᛒ) among our custom characters
 BT_GLYPH = bytes((0x04, 0x06, 0x15, 0x0E, 0x0E, 0x15, 0x06, 0x04))
 GLYPHS = vu_meter.GLYPHS[:8 * BT] + BT_GLYPH
 STREAM_NAMES = {"airplay": "AirPlay", "bluetooth": chr(BT) + " Bluetooth"}
 
 
 def lr(left, right):
-    """Texto à esquerda e à direita numa linha de 16."""
+    """Text on the left and on the right of a 16-character line."""
     gap = 16 - len(left) - len(right)
     return (left + " " * max(1, gap) + right)[:16]
 
@@ -51,12 +51,12 @@ def khz(rate):
 
 
 def with_bt_glyph(cgram):
-    """Os desenhos do controlador com o símbolo do Bluetooth no 7 (para a tela do amp)."""
+    """The controller's characters with the Bluetooth symbol at 7 (for the amp screen)."""
     return bytes(cgram[:8 * BT]) + BT_GLYPH
 
 
 def bar(fraction, cells):
-    """Barra com os desenhos do VU: 5 colunas de pixels por célula."""
+    """A bar made of the VU characters: 5 pixel columns per cell."""
     n = int(max(0, min(1, fraction)) * cells * 5 + 0.5)
     out = []
     for c in range(cells):
@@ -70,13 +70,13 @@ class Screens:
         self.info = info
         self.cfg = {"on": False, "mode": "temp", "show": list(KINDS), "secs": 8, "turntable": []}
         self.seen_stream = 0
-        self.quality_at = None          # quando a tela "quality" entrou (modo temporário)
-        self.stylus_at = None           # quando a tela "stylus" entrou (modo temporário)
+        self.quality_at = None          # when the "quality" screen came in (temporary mode)
+        self.stylus_at = None           # when the "stylus" screen came in (temporary mode)
         self.was_playing = False
-        self.seen_input = None          # a entrada que _pick() viu por último, com dados
+        self.seen_input = None          # the input _pick() last saw, with data
         self.key = None
         self.since = 0
-        self.input = None               # a entrada do amp agora ("TUNER"), do amp_state
+        self.input = None               # the amp's current input ("TUNER"), from amp_state
         self.error = None
 
     def configure(self, cfg):
@@ -88,7 +88,7 @@ class Screens:
         self.error = None
 
     def vu_allowed(self):
-        """No modo fixo o VU não entra: o Pico nem pede os quadros."""
+        """In fixed mode the VU stays out: the Pico does not even request the frames."""
         return not (self.cfg["on"] and self.cfg["mode"] == "fixed")
 
     def _has(self, kind):
@@ -103,14 +103,14 @@ class Screens:
         return False
 
     def stream_label(self, now):
-        """O nome do streaming tocando ("AirPlay", "ᛒ Bluetooth"), para a linha da entrada
-        na tela do amp, ou None. Vale com ou sem as telas ligadas."""
+        """The name of the stream playing ("AirPlay", "ᛒ Bluetooth"), for the input line on
+        the amp screen, or None. Applies with or without the screens on."""
         if not self.info.fresh(now):
             return None
         return STREAM_NAMES.get(self.info.data["stream"])
 
     def pick(self, now, standby, vu_active, amp_input=None):
-        """A tela de agora: "vu", uma das telas de informação, ou None (a tela do amp)."""
+        """The current screen: "vu", one of the info screens, or None (the amp screen)."""
         self.input = amp_input
         key = self._pick(now, standby, vu_active)
         if key != self.key:
@@ -130,7 +130,7 @@ class Screens:
         if info.stream_seq != self.seen_stream:
             self.seen_stream = info.stream_seq
             self.quality_at = now if quality else None
-        # Só com dados: uma troca de entrada antes do primeiro pacote ainda conta.
+        # Only with data: an input change before the first packet still counts.
         entered = self.input != self.seen_input
         started = info.playing and not self.was_playing
         self.seen_input, self.was_playing = self.input, info.playing
@@ -145,13 +145,13 @@ class Screens:
         return "vu" if vu_active else None
 
     def lines(self, key, now):
-        """As duas linhas (16 caracteres cada) de uma tela de informação."""
+        """The two lines (16 characters each) of an info screen."""
         d = self.info.data
         if key == "stylus":
             wear = d["stylus_wear"]
             l1 = "Replace stylus" if wear is not None and wear >= STYLUS_WARN \
                 else lr("Stylus", "%d h" % d["stylus_hours"])
-            l2 = (bar(wear / 100, 12) + "%4s" % ("%d%%" % wear)) if wear is not None else ""   # sem rjust no MicroPython
+            l2 = (bar(wear / 100, 12) + "%4s" % ("%d%%" % wear)) if wear is not None else ""   # no rjust in MicroPython
         elif key == "quality":
             l1 = lr(STREAM_NAMES["bluetooth"], d["codec"] or "")
             fmt = [khz(d["sample_rate"])] if d["sample_rate"] else []

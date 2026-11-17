@@ -1,22 +1,22 @@
-# API do estado e dos comandos do amp (para o groove-rig e outros clientes)
+# Amp state and command API (for groove-rig and other clients)
 
-O Pico publica o que o display do SP103 mostra, já interpretado, em `http://sp103.local/` (ou o IP do Pico,
-192.168.178.108). O estado é só leitura; os comandos ao amp ficam nas rotas `/control` e `/ir`. Este é o contrato em que
-o groove-rig (o "state provider" do amplificador) pode confiar; mudanças nele precisam mudar também os clientes.
+The Pico publishes what the SP103 display shows, already interpreted, at `http://sp103.local/` (or the Pico's IP,
+192.168.178.108). The state is read-only; commands to the amp live on the `/control` and `/ir` routes. This is the contract
+groove-rig (the amplifier's "state provider") can rely on; changes to it must also change the clients.
 
-## Rotas
+## Routes
 
-| Rota | O quê |
+| Route | What |
 |---|---|
-| `GET /device` | Quem é a ponte e o que ela sabe fazer. O contrato está em `docs/contrato.md`, no repositório amp-link |
-| `GET /state` | O estado atual, em JSON |
-| `GET /events` | Server-Sent Events: um `data: {json}` com o estado atual logo ao conectar, e outro a cada mudança. Um comentário `: ping` a cada 1 s mantém a conexão viva: sem nada por uns 5 s, o cliente deve reconectar |
-| `GET /ir` | Comandos aceitos, envios feitos e leituras da linha do IR e do botão do volume |
-| `POST /ir/send?cmd=volume_up` | Manda um comando ao amp pela linha do IR |
-| `POST /control?target=bass&dir=up` | Ajusta o amp direto, sem o cliente lidar com menus (ver "Ajustes diretos") |
-| `/wifi` | A rede Wi-Fi do Pico e a configuração sem cabo (`docs/wifi.md`). Para achar o Pico sem IP fixo: broadcast UDP `AMPLINK?` na porta 47800 |
+| `GET /device` | Who the bridge is and what it can do. The contract is in `docs/contrato.md`, in the amp-link repository |
+| `GET /state` | The current state, as JSON |
+| `GET /events` | Server-Sent Events: one `data: {json}` with the current state right on connect, and another on every change. A `: ping` comment every 1 s keeps the connection alive: with nothing for about 5 s, the client should reconnect |
+| `GET /ir` | Accepted commands, sends made, and readings of the IR line and the volume knob |
+| `POST /ir/send?cmd=volume_up` | Sends a command to the amp over the IR line |
+| `POST /control?target=bass&dir=up` | Adjusts the amp directly, without the client dealing with menus (see "Direct settings") |
+| `/wifi` | The Pico's Wi-Fi network and cable-free setup (`docs/wifi.md`). To find the Pico without a fixed IP: UDP broadcast `AMPLINK?` on port 47800 |
 
-O JSON de `/state` e `/events` é o mesmo. Exemplo:
+The JSON from `/state` and `/events` is the same. Example:
 
 ```json
 {"power": "on", "volume_db": -20.0, "input": "DAB", "input_id": "dab", "input_name": "AirPlay/BT - DAC",
@@ -25,79 +25,79 @@ O JSON de `/state` e `/events` é o mesmo. Exemplo:
  "updated_at": 3747990, "version": 5}
 ```
 
-## Campos
+## Fields
 
-`null` em qualquer campo = ainda não se sabe. O Pico só sabe um valor depois que o amp o mostra no display: depois de
-o Pico reiniciar, o bass fica `null` até alguém mexer nele.
+`null` in any field = not known yet. The Pico only knows a value after the amp shows it on the display: after
+the Pico restarts, bass stays `null` until someone changes it.
 
-| Campo | Valores | Observação |
+| Field | Values | Notes |
 |---|---|---|
-| `power` | `"on"`, `"standby"`, `null` | `"on"`: o amp mostrou uma tela conhecida. `"standby"`: o controlador apagou a tela (ver abaixo). `null`: o Pico ligou e o amp ainda não mostrou nada |
-| `volume_db` | −78.75 a 0, passos de 1.25 | O número da tela de volume |
-| `input` | `PHONO`, `TUNER`, `TAPE/AUX`, `CD`, `DVD`, `DAB` | O nome original no amp |
-| `input_id` | `phono`, `tuner`, `tape_aux`, `cd`, `dvd`, `dab` | Estável, para programas; os mesmos ids do perfil `acoustic_solutions_sp103` do groove-rig |
-| `input_name` | texto | O nome personalizado (app), ou o original |
-| `bass_db`, `treble_db` | −14 a 14, inteiros | |
-| `balance` | `{"side": "L"/"R"/null, "db": −78.75..0}` | `db` 0 = centro. `side` null abaixo de 5 dB: a barra do amp ainda não mostra o lado |
-| `loudness`, `speakers` | `true`, `false` | Ao sair do standby, o amp volta sempre com `speakers` ligado, e o Pico já mostra `true`. `loudness` continua como estava (medido em 2026-11-06) |
-| `screen` | `normal`, `volume`, `bass`, `treble`, `balance`, `loudness`, `speakers`, `boot`, `about`, `standby`, `unknown` | A tela que o amp está mostrando. `bass`/`treble`: o amp está no modo em que Volume ± muda o tom (até 6 s depois da última tecla) |
-| `firmware` | texto | Da tela "SW version" |
-| `lcd` | 2 textos de 16 | As linhas originais do controlador (a caixa das barras vira `■`) |
-| `updated_at` | ms | Relógio interno do Pico, na última mudança. Só serve para comparar com outro `updated_at` |
-| `version` | inteiro | Aumenta a cada mudança. Volta a 0 quando o Pico reinicia |
+| `power` | `"on"`, `"standby"`, `null` | `"on"`: the amp showed a known screen. `"standby"`: the controller blanked the screen (see below). `null`: the Pico started and the amp has not shown anything yet |
+| `volume_db` | −78.75 to 0, steps of 1.25 | The number on the volume screen |
+| `input` | `PHONO`, `TUNER`, `TAPE/AUX`, `CD`, `DVD`, `DAB` | The original name on the amp |
+| `input_id` | `phono`, `tuner`, `tape_aux`, `cd`, `dvd`, `dab` | Stable, for programs; the same ids as groove-rig's `acoustic_solutions_sp103` profile |
+| `input_name` | text | The custom name (app), or the original |
+| `bass_db`, `treble_db` | −14 to 14, integers | |
+| `balance` | `{"side": "L"/"R"/null, "db": −78.75..0}` | `db` 0 = centre. `side` null below 5 dB: the amp's bar does not show the side yet |
+| `loudness`, `speakers` | `true`, `false` | When leaving standby, the amp always comes back with `speakers` on, and the Pico already shows `true`. `loudness` stays as it was (measured on 2026-11-06) |
+| `screen` | `normal`, `volume`, `bass`, `treble`, `balance`, `loudness`, `speakers`, `boot`, `about`, `standby`, `unknown` | The screen the amp is showing. `bass`/`treble`: the amp is in the mode where Volume ± changes the tone (up to 6 s after the last key) |
+| `firmware` | text | From the "SW version" screen |
+| `lcd` | 2 strings of 16 | The controller's original lines (the bar block becomes `■`) |
+| `updated_at` | ms | The Pico's internal clock at the last change. Only useful for comparing with another `updated_at` |
+| `version` | integer | Increases on every change. Goes back to 0 when the Pico restarts |
 
 ## Standby
 
-Ao ir para o standby, o controlador escreve espaços nas duas linhas e para; o `power` vira `"standby"` e a `screen`
-também. Ao sair do standby, ele desenha direto a tela normal (volume e entrada), e o `power` vira `"on"`. Só quando o
-amp recebe energia da tomada ele apaga a tela ("Clear display") e mostra "ACOUSTIC SOLUTIONS". Confirmado no amp em
-2026-10-29: standby → `"standby"` em 0,1 s; ligar → `"on"`. Os outros campos guardam o último valor durante o standby (o amp volta com o mesmo volume e a mesma entrada).
+When going to standby, the controller writes spaces on both lines and stops; `power` becomes `"standby"` and so does
+`screen`. When leaving standby, it draws the normal screen straight away (volume and input), and `power` becomes `"on"`. Only when the
+amp gets power from the wall socket does it clear the screen ("Clear display") and show "ACOUSTIC SOLUTIONS". Confirmed on the amp on
+2026-10-29: standby → `"standby"` in 0.1 s; power on → `"on"`. The other fields keep their last value during standby (the amp comes back with the same volume and the same input).
 
-O Pico é alimentado pelo amp também em standby. Se ele reiniciar com o amp em standby, o `power` fica `null` até o amp
-ser ligado: um cliente que precisa saber deve tratar `null` como "não sei", nunca como desligado.
+The Pico is powered by the amp in standby too. If it restarts with the amp in standby, `power` stays `null` until the amp
+is turned on: a client that needs to know must treat `null` as "don't know", never as off.
 
-## Para o cliente
+## For the client
 
-- Prefira o `/events`: cada mudança chega na hora (uns 10 ms depois de o controlador terminar a tela, mais o Wi-Fi).
-- Se o Pico sumir (sem `ping` por uns 5 s), considere o estado desconhecido e reconecte com espera crescente.
-- O Pico atende poucas conexões ao mesmo tempo: um `/events` por cliente, não um por tela. Ele guarda uma conexão por IP
-  e 3 no total: uma conexão nova do mesmo IP derruba a antiga, e com o teto cheio sai a mais antiga.
-- O `sp103.local` funciona no iOS e no macOS. O groove-rig (Go sem cgo) **não** resolve nomes `.local`: use o IP,
-  que é fixo pelo roteador (`http://192.168.178.108/events`).
-- No groove-rig, este é o "state provider" do perfil SP103: o contrato genérico está no `docs/state-provider.md` de lá.
+- Prefer `/events`: each change arrives right away (about 10 ms after the controller finishes the screen, plus Wi-Fi).
+- If the Pico disappears (no `ping` for about 5 s), consider the state unknown and reconnect with increasing backoff.
+- The Pico serves few connections at a time: one `/events` per client, not one per screen. It keeps one connection per IP
+  and 3 in total: a new connection from the same IP drops the old one, and when the limit is reached the oldest goes.
+- `sp103.local` works on iOS and macOS. groove-rig (Go without cgo) does **not** resolve `.local` names: use the IP,
+  which is fixed by the router (`http://192.168.178.108/events`).
+- In groove-rig, this is the SP103 profile's "state provider": the generic contract is in its `docs/state-provider.md`.
 
-## Ajustes diretos
+## Direct settings
 
-O cliente pede o resultado, e o Pico faz os cliques (`firmware/control.py`). A resposta é o estado depois da mudança, ou
-`400` com `{"error": "..."}`. Só um pedido por vez, e, com exceção de `target=key`, só com `power` = `on`.
+The client asks for the result, and the Pico does the clicks (`firmware/control.py`). The response is the state after the change, or
+`400` with `{"error": "..."}`. Only one request at a time and, except for `target=key`, only with `power` = `on`.
 
-| Pedido | O que o Pico faz |
+| Request | What the Pico does |
 |---|---|
-| `target=volume&dir=up` ou `down` | Espera um menu aberto fechar e manda volume. O primeiro toque só abre a tela do volume, então ele confere o valor e repete |
-| `target=bass` ou `treble`, com `dir` | Manda a tecla própria e depois volume. 2 dB por passo |
-| `target=balance`, com `dir` | Clica no Function até Balance e manda volume. 1,25 dB por passo |
-| `target=loudness&on=1` ou `0` | Clica no Function até Loudness e manda volume + (ligar) ou − (desligar) |
-| `target=speakers&on=1` ou `0` | Igual, em Speakers |
-| `target=key&name=<comando>` | Manda uma tecla do controle, como `power_toggle` ou `select_cd`. Vale também em standby |
+| `target=volume&dir=up` or `down` | Waits for an open menu to close and sends volume. The first press only opens the volume screen, so it checks the value and repeats |
+| `target=bass` or `treble`, with `dir` | Sends the dedicated key and then volume. 2 dB per step |
+| `target=balance`, with `dir` | Clicks Function until Balance and sends volume. 1.25 dB per step |
+| `target=loudness&on=1` or `0` | Clicks Function until Loudness and sends volume + (on) or − (off) |
+| `target=speakers&on=1` or `0` | The same, on Speakers |
+| `target=key&name=<command>` | Sends a remote control key, such as `power_toggle` or `select_cd`. Also works in standby |
 
-Todos foram testados no amp em 2026-11-06. Em cerca de 1 clique a cada 8, o Function também troca a entrada para PHONO;
-o Pico percebe e devolve a entrada anterior em cerca de 1 s. Se ele ainda não souber a entrada, logo depois de reiniciar,
-não tem como devolver.
+All were tested on the amp on 2026-11-06. In about 1 click in 8, Function also switches the input to PHONO;
+the Pico notices and restores the previous input in about 1 s. If it does not know the input yet, right after restarting,
+it cannot restore it.
 
-## Comandos
+## Commands
 
-`POST /ir/send?cmd=<comando>` manda o comando e responde como o `GET /ir`. Comando desconhecido ou outro envio em
-andamento: `400` com `{"error": "..."}`. Um envio dura cerca de 130 ms.
+`POST /ir/send?cmd=<command>` sends the command and responds like `GET /ir`. Unknown command or another send in
+progress: `400` with `{"error": "..."}`. A send takes about 130 ms.
 
-| Comando | Efeito |
+| Command | Effect |
 |---|---|
-| `power_toggle` | Liga ou põe em standby. É o mesmo comando para os dois: confira o `power` antes |
-| `volume_up`, `volume_down` | O primeiro toque só abre a tela do volume; os seguintes mudam 1,25 dB cada |
-| `bass`, `treble` | Abrem o ajuste; por 6 s, `volume_up` e `volume_down` mudam esse valor |
-| `select_phono`, `select_tuner`, `select_tape_aux`, `select_cd`, `select_dvd`, `select_dab` | Trocam a entrada |
+| `power_toggle` | Turns on or puts into standby. It is the same command for both: check `power` first |
+| `volume_up`, `volume_down` | The first press only opens the volume screen; the following ones change 1.25 dB each |
+| `bass`, `treble` | Open the setting; for 6 s, `volume_up` and `volume_down` change that value |
+| `select_phono`, `select_tuner`, `select_tape_aux`, `select_cd`, `select_dvd`, `select_dab` | Switch the input |
 
-Testados no amp: `power_toggle`, volume, `bass`, `treble`, `select_cd` e `select_dvd`. As outras entradas têm os bits
-conferidos com o perfil do groove-rig.
+Tested on the amp: `power_toggle`, volume, `bass`, `treble`, `select_cd` and `select_dvd`. The other inputs have their bits
+checked against the groove-rig profile.
 
 `GET /ir`:
 
@@ -106,11 +106,11 @@ conferidos com o perfil do groove-rig.
  "wakes": 1}
 ```
 
-| Campo | Significado |
+| Field | Meaning |
 |---|---|
-| `commands` | Os comandos aceitos |
-| `sending` | Há um envio em andamento |
-| `sent` | Envios desde que o Pico ligou, incluindo os do botão do volume |
-| `line` | Nível da linha do IR. Em repouso, 1 |
-| `knob`, `knob_edges` | Nível do E1 do encoder e mudanças contadas desde que o Pico ligou |
-| `wakes` | Vezes em que girar o botão ligou o amp |
+| `commands` | The accepted commands |
+| `sending` | A send is in progress |
+| `sent` | Sends since the Pico started, including those from the volume knob |
+| `line` | IR line level. At rest, 1 |
+| `knob`, `knob_edges` | Level of the encoder's E1 and changes counted since the Pico started |
+| `wakes` | Times turning the knob turned the amp on |

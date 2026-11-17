@@ -1,9 +1,9 @@
-"""Driver simples para LCD 16x2 (HD44780) em modo 4 bits, só escrita (RW no GND).
+"""Simple driver for a 16x2 LCD (HD44780) in 4-bit mode, write only (RW on GND).
 
-Ligação: RS=GP16, E=GP17, D4..D7=GP18..GP21, no display do amp (docs/proxy-ligacao.md)
-ou no reserva da bancada (docs/bancada-ligacao.md).
-Como o RW fica no GND, não dá para ler o busy flag: esperamos o tempo máximo
-de cada comando (datasheet do HD44780).
+Wiring: RS=GP16, E=GP17, D4..D7=GP18..GP21, on the amp's display (docs/proxy-ligacao.md)
+or on the bench spare (docs/bancada-ligacao.md).
+Since RW is on GND, the busy flag cannot be read: we wait the maximum time
+for each command (HD44780 datasheet).
 """
 
 import time
@@ -17,13 +17,13 @@ class Lcd1602:
         self.d = [Pin(d4 + i, Pin.OUT, value=0) for i in range(4)]
         self.reset()
 
-    # --- baixo nível -------------------------------------------------------
+    # --- low level ---------------------------------------------------------
 
     def _nibble(self, n):
         for i in range(4):
             self.d[i].value((n >> i) & 1)
         self.e.value(1)
-        time.sleep_us(1)                # o pulso do E precisa de pelo menos 450 ns
+        time.sleep_us(1)                # the E pulse needs at least 450 ns
         self.e.value(0)
         time.sleep_us(1)
 
@@ -31,59 +31,59 @@ class Lcd1602:
         self.rs.value(rs)
         self._nibble(b >> 4)
         self._nibble(b & 0x0F)
-        time.sleep_us(50)               # a maioria dos comandos leva 37 µs
+        time.sleep_us(50)               # most commands take 37 µs
 
     def command(self, b):
         self._byte(b, 0)
-        if b in (0x01, 0x02):           # Clear e Home levam 1,52 ms
+        if b in (0x01, 0x02):           # Clear and Home take 1.52 ms
             time.sleep_ms(2)
 
     def data(self, b):
         self._byte(b, 1)
 
     def reset(self):
-        """Reinicia o display. Também corrige o "texto quebrado" do modo 4 bits:
-        se um mau contato fizer o display perder meio byte, ele passa a juntar
-        as metades erradas até ser reiniciado. Esta sequência resincroniza."""
+        """Restarts the display. Also fixes the 4-bit mode "garbled text":
+        if a bad contact makes the display lose half a byte, it keeps pairing
+        the wrong halves until it is restarted. This sequence resyncs it."""
         time.sleep_ms(50)
         self.on = True
         self.resync()
-        self.command(0x01)              # limpa
+        self.command(0x01)              # clear
 
     def resync(self):
-        """A parte do reset() que resincroniza o modo 4 bits, sem apagar a tela.
-        No meio da sequência o display só recebe comandos de configuração e de
-        endereço; quem chama reescreve o texto e os desenhos depois."""
-        # Sequência do datasheet para entrar no modo 4 bits, partindo de qualquer estado.
+        """The part of reset() that resyncs the 4-bit mode, without clearing the screen.
+        In the middle of the sequence the display only gets configuration and address
+        commands; the caller rewrites the text and the custom characters afterwards."""
+        # Datasheet sequence to enter 4-bit mode, starting from any state.
         self.rs.value(0)
         for wait_us in (4500, 150, 150):
             self._nibble(0x3)
             time.sleep_us(wait_us)
-        self._nibble(0x2)               # agora em 4 bits
+        self._nibble(0x2)               # now in 4 bits
         time.sleep_us(150)
-        self.command(0x28)              # 4 bits, 2 linhas, 5x8
-        self.command(0x0C if self.on else 0x08)   # display ligado (ou não), sem cursor
-        self.command(0x06)              # escreve da esquerda para a direita
+        self.command(0x28)              # 4 bits, 2 lines, 5x8
+        self.command(0x0C if self.on else 0x08)   # display on (or not), no cursor
+        self.command(0x06)              # writes left to right
 
     def display(self, on):
         self.on = on
         self.command(0x0C if on else 0x08)
 
-    # --- alto nível --------------------------------------------------------
+    # --- high level --------------------------------------------------------
 
     def define_char(self, code, rows):
-        """Grava um caractere personalizado (código 0 a 7, 8 linhas de 5 pontos)."""
+        """Stores a custom character (code 0 to 7, 8 rows of 5 dots)."""
         self.command(0x40 | (code << 3))
         for r in rows:
             self.data(r)
-        self.command(0x80)              # volta para a DDRAM
+        self.command(0x80)              # back to DDRAM
 
     def write_line(self, row, text, old=None):
-        """Escreve uma linha de 16 posições (completa com espaços).
+        """Writes a 16-position line (padded with spaces).
 
-        old = o que já está nessa linha do display: manda só as posições que mudaram (cada
-        byte custa uns 100 µs com o laço parado; no VU, poucas células mudam por quadro).
-        Sem old, escreve as 16."""
+        old = what is already on that display line: sends only the positions that changed (each
+        byte costs about 100 µs with the loop stalled; in the VU, few cells change per frame).
+        Without old, writes all 16."""
         text = (text + " " * 16)[:16]
         base = 0x80 | (0x40 if row else 0x00)
         if old is None or len(old) != 16:
@@ -91,12 +91,12 @@ class Lcd1602:
             for c in text:
                 self.data(ord(c))
             return
-        at = -1                         # onde o cursor do display está (-1 = não se sabe)
+        at = -1                         # where the display cursor is (-1 = unknown)
         for col in range(16):
             if text[col] == old[col]:
                 continue
             if at >= 0 and col - at == 1:
-                self.data(ord(text[at]))    # um só igual no meio: reescrever custa o mesmo que pular
+                self.data(ord(text[at]))    # a single unchanged cell in between: rewriting costs the same as skipping
             elif col != at:
                 self.command(base + col)
             self.data(ord(text[col]))

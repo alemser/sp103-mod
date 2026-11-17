@@ -1,37 +1,37 @@
-# Ligação do analisador lógico ao LCD do SP103
+# Wiring the logic analyser to the SP103 LCD
 
-> O mapa de pinos abaixo continua valendo. A ligação do analisador foi usada nas capturas de 2026-10-23; hoje os pinos
-> 4–14 do LCD estão separados do controlador (`docs/proxy-ligacao.md`). Para capturar de novo, ligue o analisador nos
-> fios do lado do controlador (furos 4–14 da placa).
+> The pin map below still applies. The analyser wiring was used for the captures on 2026-10-23; today LCD pins
+> 4–14 are separated from the controller (`docs/proxy-ligacao.md`). To capture again, connect the analyser to the
+> wires on the controller side (holes 4–14 on the board).
 
-## Mapa de pinos (medido com multímetro em 2026-10-22, amp fora da tomada)
+## Pin map (measured with a multimeter on 2026-10-22, amp unplugged)
 
-Pinos do LCD numerados da esquerda para a direita, olhando o display de frente (pino 1 = ponta esquerda).
-Chip T9311DP: pernas 1–20 na fileira de baixo (da esquerda para a direita) e 40–21 na de cima
-(da esquerda para a direita; a perna 40 fica no canto superior esquerdo).
+LCD pins numbered from left to right, looking at the display from the front (pin 1 = left end).
+T9311DP chip: legs 1–20 on the bottom row (left to right) and 40–21 on the top row
+(left to right; leg 40 is at the top-left corner).
 
-| Pino LCD | Sinal | Perna do chip | Porta (se 8051) | Observação |
+| LCD pin | Signal | Chip leg | Port (if 8051) | Notes |
 |---|---|---|---|---|
-| 1 | GND (VSS) | – | – | apita com o GND |
-| 2 | +5 V (VDD) | – | – | **não ligar nada** |
-| 3 | VO (contraste) | – | – | apita com o GND (trimpot quase no mínimo; normal) |
+| 1 | GND (VSS) | – | – | beeps with GND |
+| 2 | +5 V (VDD) | – | – | **connect nothing** |
+| 3 | VO (contrast) | – | – | beeps with GND (trimpot almost at minimum; normal) |
 | 4 | RS | 10 | P3.0 | |
-| 5 | RW | 11 | P3.1 | **não** vai ao GND: o controlador controla o RW |
+| 5 | RW | 11 | P3.1 | does **not** go to GND: the controller drives RW |
 | 6 | E | 28 | P2.7 | |
-| 7–14 | D0–D7 | 39–32 | P0.0–P0.7 | P0 precisa de pull-ups: são as redes R907/R908 (9 × 4,7k) |
-| 15 | A (backlight +) | – | – | não medido |
-| 16 | K (backlight −) | – | – | apita com o GND |
+| 7–14 | D0–D7 | 39–32 | P0.0–P0.7 | P0 needs pull-ups: they are the R907/R908 networks (9 × 4.7k) |
+| 15 | A (backlight +) | – | – | not measured |
+| 16 | K (backlight −) | – | – | beeps with GND |
 
-**Conclusão:** barramento de **8 bits**, e o RW é controlado pelo chip (ele pode ler o busy flag).
+**Conclusion:** an **8-bit** bus, and RW is driven by the chip (it can read the busy flag).
 
-## Ligação no Pico 2 W
+## Wiring on the Pico 2 W
 
-Confirmado no código do firmware (`pinMap`): **Canal N = GP(N+1)** para os canais 1–21.
-Os canais 22–24 são GP26–28, que são pinos de ADC e **não** aguentam 5 V. Não use esses canais.
+Confirmed in the firmware code (`pinMap`): **Channel N = GP(N+1)** for channels 1–21.
+Channels 22–24 are GP26–28, which are ADC pins and do **not** tolerate 5 V. Do not use those channels.
 
-| Sinal | Pino LCD | Canal | Pico GPIO | Pino físico do Pico |
+| Signal | LCD pin | Channel | Pico GPIO | Pico physical pin |
 |---|---|---|---|---|
-| GND | 1 | – | GND | 3 (ou 8, 13) |
+| GND | 1 | – | GND | 3 (or 8, 13) |
 | E | 6 | CH1 | GP2 | 4 |
 | RS | 4 | CH2 | GP3 | 5 |
 | RW | 5 | CH3 | GP4 | 6 |
@@ -44,69 +44,69 @@ Os canais 22–24 são GP26–28, que são pinos de ADC e **não** aguentam 5 V.
 | D6 | 13 | CH10 | GP11 | 15 |
 | D7 | 14 | CH11 | GP12 | 16 |
 
-Dica: na janela de captura, escreva os nomes nos campos abaixo de cada canal (E, RS, RW, D0…D7).
-Assim as ondas ficam legíveis e o script usa os nomes.
+Tip: in the capture window, type the names in the fields below each channel (E, RS, RW, D0…D7).
+That way the waveforms are readable and the script uses the names.
 
-## Segurança elétrica
+## Electrical safety
 
-- **5 V nas entradas:** pelo datasheet do RP2350, os GPIOs do banco 0 (exceto os de ADC, GP26–29) toleram 5 V
-  **somente com o Pico alimentado** (IOVDD = 3,3 V). Por isso:
-  1. Amp **fora da tomada**: ligue os fios.
-  2. Pico no USB do Mac (notebook **na bateria**).
-  3. Só então ligue o amp na tomada.
-  4. Para terminar: **primeiro** desligue o amp da tomada, **depois** o USB do Pico.
-- **Resistor de proteção (recomendado):** um de 1 kΩ em série em cada fio de sinal, perto do Pico. Ele não atrapalha
-  nesta velocidade e limita a corrente se a ordem acima falhar.
-- **Pull-downs internos (errata E9):** o firmware não liga nenhum pull de propósito, mas o RP2350 começa com o
-  pull-down ligado. O E9 só atrapalha sinais fracos, e aqui todos os sinais são acionados com força
-  (saídas do chip ou pull-ups de 4,7k), então não há problema para a captura.
-- **Fios Dupont:** encaixados lado a lado nos pininhos (passo de 2,54 mm), confira que nenhum encosta no vizinho.
-  O pino 2 (+5 V) fica **livre**.
+- **5 V on the inputs:** per the RP2350 datasheet, bank 0 GPIOs (except the ADC ones, GP26–29) tolerate 5 V
+  **only with the Pico powered** (IOVDD = 3.3 V). So:
+  1. Amp **unplugged**: connect the wires.
+  2. Pico on the Mac's USB (laptop **on battery**).
+  3. Only then plug the amp in.
+  4. To finish: **first** unplug the amp, **then** the Pico's USB.
+- **Protection resistor (recommended):** a 1 kΩ in series on each signal wire, close to the Pico. It does not get in the way
+  at this speed and limits the current if the order above goes wrong.
+- **Internal pull-downs (erratum E9):** the firmware does not enable any pull on purpose, but the RP2350 starts with the
+  pull-down enabled. E9 only affects weak signals, and here all signals are driven hard
+  (chip outputs or 4.7k pull-ups), so there is no problem for the capture.
+- **Dupont wires:** fitted side by side on the pins (2.54 mm pitch), check that none touches its neighbour.
+  Pin 2 (+5 V) stays **free**.
 
-## Plano de captura
+## Capture plan
 
-Com 11 canais, o firmware usa o modo de 16 canais: cabem **cerca de 196 mil amostras** por captura.
+With 11 channels, the firmware uses 16-channel mode: **about 196 thousand samples** fit per capture.
 
-| Frequência | Duração máxima | Uso |
+| Frequency | Maximum duration | Use |
 |---|---|---|
-| 25 MHz | ~7,8 ms | medir a largura do pulso E |
-| 10 MHz | ~19,6 ms | ver um bloco de escrita com detalhe |
-| 4 MHz | ~49 ms | ligar o amp, trocar de entrada (precisa de pulso E ≥ 0,75 µs) |
-| 2 MHz | ~98 ms | sequências longas (precisa de pulso E ≥ 1,5 µs) |
+| 25 MHz | ~7.8 ms | measure the E pulse width |
+| 10 MHz | ~19.6 ms | see a write block in detail |
+| 4 MHz | ~49 ms | power on the amp, change input (needs E pulse ≥ 0.75 µs) |
+| 2 MHz | ~98 ms | long sequences (needs E pulse ≥ 1.5 µs) |
 
-Em todas as capturas, use: canais 1–11, **Edge trigger no canal 01 com "Negative edge" desmarcado**, presamples 512.
+In every capture, use: channels 1–11, **Edge trigger on channel 01 with "Negative edge" unchecked**, presamples 512.
 
-Pelo código do firmware (`NEGATIVE_CAPTURE` em `LogicAnalyzer.pio`), o "edge trigger" testa o **nível** do pino:
-- "Negative" dispara assim que o pino está em 0;
-- "Positive" dispara assim que o pino está em 1.
+According to the firmware code (`NEGATIVE_CAPTURE` in `LogicAnalyzer.pio`), the "edge trigger" tests the pin's **level**:
+- "Negative" fires as soon as the pin is at 0;
+- "Positive" fires as soon as the pin is at 1.
 
-O E fica em 0 no repouso, então só o "Positive" espera o pulso. Além disso, o pino é testado uma vez por amostra:
-em frequências baixas, um pulso E mais curto que o intervalo entre amostras pode passar despercebido.
-Por isso a primeira captura é feita a 25 MHz.
+E rests at 0, so only "Positive" waits for the pulse. Also, the pin is tested once per sample:
+at low frequencies, an E pulse shorter than the interval between samples can go unnoticed.
+That is why the first capture is done at 25 MHz.
 
-1. **Largura do pulso E (primeira captura):** amp ligado, 25 MHz, gire o volume.
-   O script mostra a largura mínima do E, e com isso você escolhe a frequência das próximas capturas
-   (pelo menos 3 amostras no pulso mais curto).
-2. **Ligar o amp (sequência de inicialização):** com o Pico já ligado e esperando a captura, ligue o amp na tomada.
-3. **Trocar de entrada:** por exemplo, para PHONO.
-4. **Girar o volume.**
+1. **E pulse width (first capture):** amp on, 25 MHz, turn the volume.
+   The script shows the minimum E width, and from that you choose the frequency of the next captures
+   (at least 3 samples in the shortest pulse).
+2. **Powering on the amp (initialisation sequence):** with the Pico already on and waiting for the capture, plug the amp in.
+3. **Changing input:** for example, to PHONO.
+4. **Turning the volume.**
 
-Se a captura disparar sem você mexer em nada, é sinal de que o controlador redesenha a tela sozinho de tempos em
-tempos. Isso também é uma resposta (pergunta 3).
+If the capture fires without you touching anything, it means the controller redraws the screen by itself from time
+to time. That is also an answer (question 3).
 
-Salve cada captura com **File → Save** (arquivo `.lac`) em `captures/` e rode:
+Save each capture with **File → Save** (`.lac` file) in `captures/` and run:
 
 ```
 python3 tools/hd44780_decode.py captures/nome.lac
 ```
 
-Ele mostra:
-- os comandos (Function set, Clear, endereço DDRAM…) e os textos escritos, com o horário em µs;
-- as **leituras (RW = 1)** e o busy flag;
-- a tela reconstruída depois de cada bloco e a largura mínima do pulso E.
+It shows:
+- the commands (Function set, Clear, DDRAM address…) and the texts written, with the time in µs;
+- the **reads (RW = 1)** and the busy flag;
+- the screen rebuilt after each block and the minimum E pulse width.
 
-## Perguntas que as capturas respondem
+## Questions the captures answer
 
-1. O controlador chega a ler o LCD (RW = 1)? Se ler, o Pico final precisa responder a essas leituras.
-2. Qual é a sequência de inicialização?
-3. O texto é redesenhado inteiro ou só os caracteres que mudam? Com que frequência?
+1. Does the controller ever read the LCD (RW = 1)? If it does, the final Pico must answer those reads.
+2. What is the initialisation sequence?
+3. Is the text redrawn in full or only the characters that change? How often?

@@ -1,19 +1,19 @@
-"""Estatísticas do barramento do LCD e registro das últimas palavras lidas, com horário.
+"""LCD bus statistics and a timestamped log of the last words read.
 
-    GET  /bus.json     as estatísticas em JSON
-    GET  /bus.csv      as últimas palavras, da mais antiga para a mais nova
-                       (?tz=<minutos>: fuso horário)
-    POST /bus/clear    zera o registro e as estatísticas (para começar um teste limpo)
+    GET  /bus.json     the statistics as JSON
+    GET  /bus.csv      the last words, oldest first
+                       (?tz=<minutes>: time zone)
+    POST /bus/clear    resets the log and the statistics (to start a clean test)
 
-Colunas do CSV: time (horário, se o Pico já acertou o relógio pela internet), ms (relógio
-interno do Pico, em ms), rs, rw, byte (hex), meaning (ver hd44780.describe). O CSV abre no
-Numbers/Excel e no tools/ler_bus.py, que remonta as telas.
+CSV columns: time (wall time, if the Pico has set its clock from the internet), ms (the
+Pico's internal clock, in ms), rs, rw, byte (hex), meaning (see hd44780.describe). The CSV
+opens in Numbers/Excel and in tools/ler_bus.py, which rebuilds the screens.
 
-O horário de cada palavra é o da LEITURA pelo Python, que pega as palavras em lotes (a
-cada ~1 ms, ou mais quando o Wi-Fi está ocupado): palavras do mesmo lote têm o mesmo
-horário, mas a ordem é sempre a certa. Para tempos finos, use o analisador lógico.
+Each word's time is when Python READ it, and Python picks up words in batches (every
+~1 ms, or longer when Wi-Fi is busy): words in the same batch share the same time, but
+the order is always right. For fine timing, use the logic analyser.
 
-Roda igual no MicroPython (Pico) e no Python do computador (tools/test_buslog.py).
+Runs the same on MicroPython (Pico) and on the computer's Python (tools/test_buslog.py).
 """
 
 import gc
@@ -25,36 +25,36 @@ from hd44780 import RS, RW, DATA_SHIFT, describe
 
 try:
     from time import ticks_diff
-except ImportError:             # no computador o relógio não dá a volta
+except ImportError:             # on the computer the clock does not wrap around
     def ticks_diff(a, b):
         return a - b
 
-SIZE = 8192                     # palavras guardadas (umas 50 telas; 48 KB de RAM)
-WARN_BATCH = 3000               # o sniffer guarda 4096: um lote perto disso pode ter perdido palavras
+SIZE = 8192                     # words kept (about 50 screens; 48 KB of RAM)
+WARN_BATCH = 3000               # the sniffer holds 4096: a batch near that may have lost words
 
 
 class BusLog:
     def __init__(self, bus, size=SIZE):
-        self.bus = bus                          # o hd44780.Bus da escuta (contagens)
+        self.bus = bus                          # the listener's hd44780.Bus (counters)
         self.size = size
         self.words = array("H", bytes(2 * size))
         self.ticks = array("I", bytes(4 * size))
-        self.clock = None                       # (segundos desde 1970, ticks_ms) do acerto pela internet
+        self.clock = None                       # (seconds since 1970, ticks_ms) from the internet clock set
         self.clear(None)
 
     def clear(self, now_ms):
-        self.n = 0                              # palavras guardadas desde o início (dá a volta no buffer)
+        self.n = 0                              # words kept since the start (wraps around the buffer)
         self.since = now_ms
         self.screens = 0
-        self.unknown = 0                        # telas que o leitor (amp_state) não reconheceu
+        self.unknown = 0                        # screens the reader (amp_state) did not recognise
         self.last_screen = None
-        self.max_gap = 0                        # maior pausa entre duas leituras do sniffer (ms)
-        self.max_batch = 0                      # mais palavras numa leitura só
+        self.max_gap = 0                        # longest pause between two sniffer reads (ms)
+        self.max_batch = 0                      # most words in a single read
         self.last_poll = None
         self.base = (self.bus.writes, self.bus.reads, self.bus.clears)
 
     def poll(self, now_ms, count):
-        """Chamar a cada leitura do sniffer, com o número de palavras lidas."""
+        """Call on every sniffer read, with the number of words read."""
         if self.last_poll is not None:
             self.max_gap = max(self.max_gap, ticks_diff(now_ms, self.last_poll))
         self.last_poll = now_ms
@@ -75,7 +75,7 @@ class BusLog:
         self.clock = (epoch_s, now_ms)
 
     def _wall(self, t_ms, tz_min):
-        """'2026-10-24 21:15:03.120' (com o fuso tz_min), ou '' sem o relógio acertado."""
+        """'2026-10-24 21:15:03.120' (in time zone tz_min), or '' if the clock is not set."""
         if not self.clock:
             return ""
         ms = self.clock[0] * 1000 + ticks_diff(t_ms, self.clock[1]) + tz_min * 60000
@@ -101,10 +101,10 @@ class BusLog:
         }
 
     def csv(self, tz_min=0, chunk=100):
-        """O registro em CSV, em pedaços de texto (gerador). Vai só até a última palavra do
-        início do download. Sem cópia (não cabe na memória): as palavras que chegam entre um
-        pedaço e outro vão para o fim do buffer; se chegarem tantas que sobrescrevam as que
-        ainda não saíram, essas são puladas."""
+        """The log as CSV, in text chunks (a generator). Goes only up to the last word present
+        when the download started. No copy (it would not fit in memory): words arriving between
+        one chunk and the next go to the end of the buffer; if so many arrive that they
+        overwrite ones not yet sent, those are skipped."""
         size, end = self.size, self.n
         k = max(0, end - size)
         yield "time,ms,rs,rw,byte,meaning\n"
@@ -120,10 +120,10 @@ class BusLog:
             k = stop
             if lines:
                 yield "".join(lines)
-            gc.collect()                        # pedaços pequenos e memória limpa: o Pico tem pouca
+            gc.collect()                        # small chunks and clean memory: the Pico has little
 
     async def handle(self, req, writer):
-        """Rota /bus (ver web.Publisher)."""
+        """Route /bus (see web.Publisher)."""
         from web import reply, reply_json
         now = time.ticks_ms()
         if req.path == "/bus.json":
@@ -139,12 +139,12 @@ class BusLog:
             name = "sp103-bus.csv"
             if self.clock:
                 name = "sp103-bus-%s.csv" % self._wall(now, tz)[:16].replace(" ", "-").replace(":", "")
-            # Sem Content-Length: o tamanho só se sabe no fim; a conexão fecha ao terminar.
+            # No Content-Length: the size is only known at the end; the connection closes when done.
             writer.write(("HTTP/1.1 200 OK\r\nContent-Type: text/csv; charset=utf-8\r\n"
                           "Content-Disposition: attachment; filename=\"%s\"\r\n"
                           "Connection: close\r\n\r\n" % name).encode())
             for part in self.csv(tz):
                 writer.write(part.encode())
-                await writer.drain()            # aqui a escuta continua rodando entre os pedaços
+                await writer.drain()            # here the listener keeps running between chunks
         else:
             await reply(writer, "404 Not Found", "text/plain", b"not found\n")

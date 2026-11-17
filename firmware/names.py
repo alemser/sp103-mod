@@ -1,24 +1,24 @@
-"""Textos personalizados do display: nomes das entradas e telas de inicialização.
+"""Custom display texts: input names and boot screens.
 
-Ficam no arquivo names.json do Pico e são editados pela app (PUT /names):
+They live in the Pico's names.json file and are edited by the app (PUT /names):
 
     {"inputs": {"TUNER": "Rega Planar 2", ...},
-     "boot":   ["Welcome", "Alessandro"],     # no lugar de "ACOUSTIC" / "SOLUTIONS"
-     "about":  ["", ""],                      # no lugar de "Amplifier SP103" / "SW version 1.0"
-     "vu":     {"on": False, "layout": "bars",                      # VU meter (vu.py), sempre com a
-                "relay": "192.168.1.50"}}                            # escala automática
+     "boot":   ["Welcome", "Alessandro"],     # instead of "ACOUSTIC" / "SOLUTIONS"
+     "about":  ["", ""],                      # instead of "Amplifier SP103" / "SW version 1.0"
+     "vu":     {"on": False, "layout": "bars",                      # VU meter (vu.py), always with
+                "relay": "192.168.1.50"}}                            # the automatic scale
                                                                      # layout: bars, deck, scale, kx393
-     "info":   {"on": False, "mode": "temp",                            # telas de informação
+     "info":   {"on": False, "mode": "temp",                            # info screens
                 "show": ["stylus", "quality"],                          # (screens.py, info.py)
-                "secs": 8, "source": "",                                # quality: Bluetooth na DAB; source "" = a do VU
-                "turntable": ["PHONO", "TUNER"]}}                       # a agulha só nessas entradas
+                "secs": 8, "source": "",                                # quality: Bluetooth on DAB; source "" = the VU's
+                "turntable": ["PHONO", "TUNER"]}}                       # the stylus only on these inputs
 
-Texto vazio (ou ausente) = o texto original do amp. As linhas das telas de
-inicialização são centralizadas, como as originais.
+Empty (or missing) text = the amp's original text. The boot screen lines are
+centered, like the original ones.
 
-O "relay" é o IP da placa com o sp103-vu-relay: o MicroPython não resolve nomes .local.
-Vem vazio; com o VU ligado, é obrigatório.
-O "source" das telas é o IP de quem fala o contrato docs/api-telas.md; vazio = o mesmo do VU.
+"relay" is the IP of the board running sp103-vu-relay: MicroPython does not resolve .local names.
+It starts empty; with the VU on, it is required.
+The screens' "source" is the IP of whoever speaks the docs/api-telas.md contract; empty = the same as the VU.
 """
 
 import json
@@ -26,14 +26,14 @@ import json
 from amp_state import INPUTS, STREAMING_INPUT
 
 FILE = "names.json"
-MAX_LEN = 16                    # uma linha do LCD
+MAX_LEN = 16                    # one LCD line
 SCREENS = ("boot", "about")
 VU_DEFAULT = {"on": False, "layout": "bars", "relay": ""}
-VU_LAYOUTS = ("bars", "deck", "scale", "kx393")   # os mesmos de vu.LAYOUTS
+VU_LAYOUTS = ("bars", "deck", "scale", "kx393")   # the same as vu.LAYOUTS
 INFO_DEFAULT = {"on": False, "mode": "temp", "show": ["stylus", "quality"], "secs": 8, "source": "",
                 "turntable": ["PHONO", "TUNER"]}
-INFO_KINDS = ("stylus", "quality")      # os mesmos de screens.KINDS
-INFO_GONE = ("track", "pos", "side")    # telas que saíram (2026-11-07): ignoradas num names.json antigo
+INFO_KINDS = ("stylus", "quality")      # the same as screens.KINDS
+INFO_GONE = ("track", "pos", "side")    # screens that were removed (2026-11-07): ignored in an old names.json
 INFO_SECS = (3, 60)
 # The standby clock was removed (2026-11-16): an old names.json or client may still send these; ignored.
 INFO_CLOCK_GONE = ("clock", "utc_offset", "eu_dst")
@@ -44,7 +44,7 @@ def load():
         with open(FILE) as f:
             return validate(json.load(f))
     except (OSError, ValueError):
-        return validate({})     # sem arquivo (ou arquivo estragado): textos originais
+        return validate({})     # no file (or a broken file): original texts
 
 
 def save(cfg):
@@ -53,25 +53,25 @@ def save(cfg):
 
 
 def _text(value, what):
-    """Confere um texto para o LCD e devolve sem espaços nas pontas."""
+    """Checks a text for the LCD and returns it with the ends stripped."""
     if not isinstance(value, str):
         raise ValueError("%s must be text" % what)
     value = value.strip()
     if len(value) > MAX_LEN:
         raise ValueError("'%s' has %d characters; the display fits %d" % (value, len(value), MAX_LEN))
     for c in value:
-        # O LCD não tem acentos, e no conjunto de caracteres dele "\" vira "¥" e "~" vira seta.
+        # The LCD has no accents, and in its character set "\" becomes "¥" and "~" becomes an arrow.
         if not (" " <= c <= "}") or c == "\\":
             raise ValueError("'%s': the display has no '%s' character (no accents)" % (value, c))
     return value
 
 
 def validate(cfg):
-    """Confere a configuração. Devolve uma cópia completa e limpa, ou levanta ValueError."""
+    """Checks the configuration. Returns a complete, clean copy, or raises ValueError."""
     if not isinstance(cfg, dict):
         raise ValueError("the configuration must be a JSON object")
     if cfg and not any(k in cfg for k in ("inputs", "vu", "info") + SCREENS):
-        cfg = {"inputs": cfg}   # formato antigo: só a tabela de entradas
+        cfg = {"inputs": cfg}   # old format: just the inputs table
     inputs = cfg.get("inputs") or {}
     if not isinstance(inputs, dict):
         raise ValueError("'inputs' must be a JSON object")
@@ -96,14 +96,14 @@ def _vu(vu):
     if not isinstance(vu, dict):
         raise ValueError("'vu' must be a JSON object")
     out = dict(VU_DEFAULT)
-    out.update(vu)              # "auto", "floor" e "top" de um names.json antigo: ignorados
+    out.update(vu)              # "auto", "floor" and "top" from an old names.json: ignored
     if not isinstance(out["on"], bool):
         raise ValueError("vu 'on' must be true or false")
     if out["layout"] not in VU_LAYOUTS:
         raise ValueError("the VU layout must be one of: " + ", ".join(VU_LAYOUTS))
     if not _is_ip(out["relay"]) and (out["on"] or out["relay"] != ""):
         raise ValueError("the VU source must be an IP address, like 192.168.1.50")
-    # A escala é sempre a automática (vu.py); a manual fica só para os testes.
+    # The scale is always the automatic one (vu.py); the manual one is kept only for the tests.
     return {"on": out["on"], "auto": True, "layout": out["layout"], "relay": out["relay"]}
 
 
@@ -143,9 +143,9 @@ def _center(text):
 
 
 def rewrite(line1, line2, cfg, stream=None):
-    """Troca os textos personalizados numa tela completa. As outras telas passam sem mudança.
-    stream: o nome do streaming tocando ("AirPlay"; screens.stream_label), que na entrada do
-    streaming toma o lugar do nome dela."""
+    """Swaps in the custom texts on a complete screen. Other screens pass through unchanged.
+    stream: the name of the streaming service playing ("AirPlay"; screens.stream_label), which
+    takes the place of the streaming input's name on that input."""
     name = line2.rstrip()
     if line1.startswith("Volume ") and name == STREAMING_INPUT and stream:
         return line1, (stream + " " * MAX_LEN)[:MAX_LEN]

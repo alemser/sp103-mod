@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Confere no computador o firmware/lcd1602.py: write_line(row, texto, old) manda só as
-posições que mudaram e o display fica igual ao que mandaria a linha inteira.
+"""Checks firmware/lcd1602.py on the computer: write_line(row, text, old) sends only the
+positions that changed, and the display ends up the same as if the whole line were sent.
 
-Os pinos são de mentira: a cada descida do E, o meio byte (modo 4 bits) vai para a cópia
-do HD44780 do hd44780.py, que guarda o que o display mostraria.
+The pins are fake: on each falling edge of E, the nibble (4-bit mode) goes to the HD44780
+copy in hd44780.py, which keeps what the display would show.
 
     python3 tools/test_lcd1602.py
 """
@@ -20,10 +20,10 @@ from hd44780 import Lcd   # noqa: E402
 
 
 class Display:
-    """O display do outro lado dos fios: junta os meios bytes e executa os bytes."""
+    """The display on the other end of the wires: joins the nibbles and runs the bytes."""
     def __init__(self):
         self.lcd = Lcd()
-        self.skip = 4                   # o resync manda 4 meios bytes sozinhos (0x3, 0x3, 0x3, 0x2)
+        self.skip = 4                   # the resync sends 4 lone nibbles (0x3, 0x3, 0x3, 0x2)
         self.high = None
         self.bytes = 0
         self.pins = {}
@@ -73,7 +73,7 @@ fails = 0
 def check(ok, what):
     global fails
     fails += not ok
-    print("%-5s %s" % ("ok" if ok else "FALHA", what))
+    print("%-5s %s" % ("ok" if ok else "FAIL", what))
 
 
 def shown(row):
@@ -83,21 +83,21 @@ def shown(row):
 lcd = Lcd1602()
 lcd.write_line(0, "Volume -28.75 dB")
 lcd.write_line(1, "TUNER")
-check(shown(0) == "Volume -28.75 dB" and shown(1) == "TUNER" + " " * 11, "linha inteira, sem old")
+check(shown(0) == "Volume -28.75 dB" and shown(1) == "TUNER" + " " * 11, "whole line, no old")
 
 DISPLAY.bytes = 0
 lcd.write_line(0, "Volume -30.00 dB", "Volume -28.75 dB")
-check(shown(0) == "Volume -30.00 dB", "só o que mudou: o display fica certo")
-check(DISPLAY.bytes == 6, "um endereço e 5 caracteres (-28.75 -> -30.00): %d bytes" % DISPLAY.bytes)
+check(shown(0) == "Volume -30.00 dB", "only what changed: the display is right")
+check(DISPLAY.bytes == 6, "one address and 5 characters (-28.75 -> -30.00): %d bytes" % DISPLAY.bytes)
 
 DISPLAY.bytes = 0
 lcd.write_line(1, "TUNER", "TUNER" + " " * 11)
-check(DISPLAY.bytes == 0, "nada mudou: nada vai para o display")
+check(DISPLAY.bytes == 0, "nothing changed: nothing goes to the display")
 
 DISPLAY.bytes = 0
 lcd.write_line(1, "TXNXR", "TUNER" + " " * 11)
 check(shown(1) == "TXNXR" + " " * 11 and DISPLAY.bytes == 4,
-      "um igual no meio é reescrito em vez de mudar o endereço: %d bytes" % DISPLAY.bytes)
+      "an unchanged one in the middle is rewritten instead of moving the address: %d bytes" % DISPLAY.bytes)
 
 random.seed(1)
 old = [shown(0), shown(1)]
@@ -108,7 +108,7 @@ for _ in range(500):
     lcd.write_line(row, new, old[row])
     old[row] = new
     ok = ok and shown(row) == new
-check(ok, "500 linhas aleatórias: o display sempre igual ao texto")
+check(ok, "500 random lines: the display always matches the text")
 
-print("\n%s" % ("tudo certo" if not fails else "%d falha(s)" % fails))
+print("\n%s" % ("all good" if not fails else "%d failure(s)" % fails))
 sys.exit(1 if fails else 0)

@@ -1,10 +1,10 @@
-"""Porta de entrada do programa: o main.py importa este arquivo ao ligar o Pico.
+"""The program's entry point: main.py imports this file when the Pico powers up.
 
-O main.py só se troca pelo cabo (ota.py), por isso o nome continua "escuta". Desde
-2026-10-29 o display do amp está dessoldado nos pinos 4..14 e o programa é o proxy
-(proxy.py, docs/proxy-ligacao.md). A escuta antiga, com o display ligado direto ao
-controlador e a escrita sem corte (escrita.py, plano.py, refresh.py), está no
-histórico do git (commit 45e782c).
+main.py can only be replaced over the cable (ota.py), which is why the name is still "escuta". Since
+2026-10-29 the amp's display has been desoldered at pins 4..14 and the program is the proxy
+(proxy.py, docs/proxy-ligacao.md). The old listener, with the display wired straight to the
+controller and uncut writing (escrita.py, plano.py, refresh.py), is in the
+git history (commit 45e782c).
 """
 
-import proxy                            # noqa: F401  (o programa roda ao ser importado)
+import proxy                            # noqa: F401  (the program runs when imported)

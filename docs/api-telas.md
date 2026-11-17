@@ -1,80 +1,80 @@
-# Contrato das telas de informação (fonte → Pico)
+# Info screens contract (source → Pico)
 
-O Pico do SP103 pode mostrar no display as horas e o desgaste da agulha (nas entradas do toca-discos) e a qualidade
-do Bluetooth (na entrada DAB). Ele não sabe de onde vêm esses dados: só conhece este contrato.
+The SP103 Pico can show on the display the stylus hours and wear (on the turntable inputs) and the Bluetooth
+quality (on the DAB input). It does not know where this data comes from: it only knows this contract.
 
-Desde 2026-11-07 o Pico não mostra mais artista e música, faixa e posição, tempo do lado nem o aviso de fim do lado
-(`firmware/screens.py`). Os campos continuam no contrato e a fonte continua mandando: o Pico lê e ignora. Quem quiser
-voltar a mostrar não precisa mudar o pacote. Quem fala este contrato é uma
-**fonte**. A fonte de hoje é o `sp103-vu-relay`, que lê o groove-identity e o groove-catalog
-(`relay/nowplaying.go`); outra fonte (Volumio, Home Assistant) só precisa mandar os mesmos pacotes.
+Since 2026-11-07 the Pico no longer shows artist and song, track and position, side time or the end-of-side notice
+(`firmware/screens.py`). The fields stay in the contract and the source keeps sending them: the Pico reads and ignores them. Anyone
+who wants to show them again does not need to change the packet. Whatever speaks this contract is a
+**source**. Today's source is `sp103-vu-relay`, which reads groove-identity and groove-catalog
+(`relay/nowplaying.go`); another source (Volumio, Home Assistant) only needs to send the same packets.
 
-Tudo vai por UDP, na porta **7091** da fonte, a mesma do VU (`docs/vu.md`).
+Everything goes over UDP, on the source's port **7091**, the same as the VU (`docs/vu.md`).
 
-## Pedido (Pico → fonte)
+## Request (Pico → source)
 
-| Pacote | Bytes | O quê |
+| Packet | Bytes | What |
 |---|---|---|
-| `"SUB1"` | 4 | Só o VU (o formato antigo; continua valendo) |
-| `"SUB2"` + máscara | 5 | Máscara: bit 0 = VU, bit 1 = telas |
+| `"SUB1"` | 4 | VU only (the old format; still valid) |
+| `"SUB2"` + mask | 5 | Mask: bit 0 = VU, bit 1 = screens |
 
-O pedido vale 6 s; o Pico repete a cada 2 s. Sem pedido válido, a fonte não manda nada. Uma fonte que só tem as telas
-ignora o bit 0, e uma que só tem o VU ignora o bit 1.
+A request is valid for 6 s; the Pico repeats it every 2 s. Without a valid request, the source sends nothing. A source that only has the screens
+ignores bit 0, and one that only has the VU ignores bit 1.
 
-## Telas (fonte → Pico)
+## Screens (source → Pico)
 
 ```
-"NP" versão(1) flags  campo 0x1F campo 0x1F ... campo
+"NP" version(1) flags  field 0x1F field 0x1F ... field
 ```
 
-- `versão` = 1. O Pico ignora pacotes de outra versão.
-- `flags`: bit 0 = tocando agora (o Pico mostra a agulha quando o disco começa a tocar); bit 1 = o lado acabou
-  (o Pico ignora). É o fato: a fonte o repete enquanto valer.
-- Os campos vêm sempre nesta ordem, separados pelo byte 0x1F. **Campo vazio = não se sabe**: a tela que depende dele
-  não aparece, e as outras continuam.
-- Texto só em ASCII de `" "` a `"}"`, sem `"\"` (a ROM do display não tem acentos; nela `"\"` vira `"¥"` e `"~"` vira
-  seta). A fonte tira os acentos (`ã` → `a`) e corta cada texto em 40 caracteres.
-- Números são inteiros em decimal.
+- `version` = 1. The Pico ignores packets of any other version.
+- `flags`: bit 0 = playing now (the Pico shows the stylus when the record starts playing); bit 1 = the side ended
+  (the Pico ignores it). It is a fact: the source repeats it while it holds.
+- The fields always come in this order, separated by the byte 0x1F. **Empty field = unknown**: the screen that depends on it
+  does not appear, and the others carry on.
+- Text in ASCII only, from `" "` to `"}"`, without `"\"` (the display ROM has no accented letters; in it `"\"` shows as `"¥"` and `"~"` as an
+  arrow). The source strips accents (`ã` → `a`) and truncates each text to 40 characters.
+- Numbers are decimal integers.
 
-| # | Campo | Exemplo | Tela |
+| # | Field | Example | Screen |
 |---|---|---|---|
-| 0 | artista | `Pink Floyd` | (ignorado) |
-| 1 | música | `Time` | (ignorado) |
-| 2 | faixa no disco | `A4` | (ignorado) |
-| 3 | posição na faixa (s) | `161` | (ignorado) |
-| 4 | duração da faixa (s) | `421` | (ignorado) |
-| 5 | lado | `A` | (ignorado) |
-| 6 | faixa no lado | `4` | (ignorado) |
-| 7 | faixas no lado | `5` | (ignorado) |
-| 8 | tempo até o fim do lado (s) | `608` | (ignorado) |
-| 9 | horas da agulha | `312` | Stylus |
-| 10 | desgaste da agulha (%) | `62` | Stylus |
-| 11 | streaming tocando: `airplay` ou `bluetooth` (vazio = nenhum) | `bluetooth` | nome da entrada DAB, Bluetooth quality |
-| 12 | codec do streaming | `SBC` | Bluetooth quality |
+| 0 | artist | `Pink Floyd` | (ignored) |
+| 1 | song | `Time` | (ignored) |
+| 2 | track on the record | `A4` | (ignored) |
+| 3 | position in the track (s) | `161` | (ignored) |
+| 4 | track duration (s) | `421` | (ignored) |
+| 5 | side | `A` | (ignored) |
+| 6 | track on the side | `4` | (ignored) |
+| 7 | tracks on the side | `5` | (ignored) |
+| 8 | time to the end of the side (s) | `608` | (ignored) |
+| 9 | stylus hours | `312` | Stylus |
+| 10 | stylus wear (%) | `62` | Stylus |
+| 11 | streaming playing: `airplay` or `bluetooth` (empty = none) | `bluetooth` | DAB input name, Bluetooth quality |
+| 12 | streaming codec | `SBC` | Bluetooth quality |
 | 13 | sample rate (Hz) | `44100` | Bluetooth quality |
-| 14 | bits por amostra | `16` | Bluetooth quality |
+| 14 | bits per sample | `16` | Bluetooth quality |
 | 15 | bitrate (kbit/s) | `328` | Bluetooth quality |
 
-Um pacote fica com uns 60 a 150 bytes. Campos a mais no fim são ignorados (para versões futuras com campos novos).
+A packet is about 60 to 150 bytes. Extra fields at the end are ignored (for future versions with new fields).
 
-### Quando mandar
+### When to send
 
-- Quando qualquer campo ou flag muda (faixa nova, lado acabou, agulha).
-- A cada 5 s enquanto houver pedido, mesmo sem mudança.
+- When any field or flag changes (new track, side ended, stylus).
+- Every 5 s while there is a request, even without a change.
 
-As posições e o tempo do lado valem **no instante do envio**.
+The positions and the side time are valid **at the moment of sending**.
 
-Sem pacote por 15 s, o Pico descarta os dados e volta à tela do amp.
+With no packet for 15 s, the Pico discards the data and goes back to the amp's screen.
 
-## Fonte de hoje: sp103-vu-relay
+## Today's source: sp103-vu-relay
 
-| Campo | De onde vem |
+| Field | Where it comes from |
 |---|---|
-| artista, música, faixa no disco, posição, duração | groove-identity `GET /status` → `playback` (`artist`, `title`, `track_position`, `position_ms`, `duration_ms`), a cada 1 s |
-| lado, faixa no lado, tempo do lado | a letra da `track_position` e a lista de faixas do disco: `album_programme.release_source` / `release_id` → groove-catalog `GET /catalog/library/releases/{source}/{id}/edition` (`draft.tracklist`: `position`, `duration_ms`), uma vez por disco. Se a edição falhar, usa `.../tracks`, que só tem as faixas que já tocaram, e lê de novo na próxima vez |
-| agulha | groove-catalog `GET /catalog/stylus` → `metrics.stylus_hours_total`, `metrics.wear_percent`, a cada 10 min; vazio se `active` for falso |
-| streaming, codec, sample rate, bits, bitrate | o arquivo de transporte do groove-detector, `/tmp/groove-transport.json` (`source`, `active`, `codec`, `samplerate`, `bitdepth`, `bitrate`), a cada 1 s; vazio sem arquivo ou com `active` falso. O bitrate só existe no Bluetooth com SBC, AAC ou aptX |
-| lado acabou | na última faixa do lado, a menos de 30 s do fim pela duração do catálogo, o identity abriu uma captura nova (`recognition.epoch` > `playback.epoch`: o listener viu a música acabar) ou parou (`playback.active` falso); vale até a próxima faixa ou 15 min |
+| artist, song, track on the record, position, duration | groove-identity `GET /status` → `playback` (`artist`, `title`, `track_position`, `position_ms`, `duration_ms`), every 1 s |
+| side, track on the side, side time | the letter of `track_position` and the record's track list: `album_programme.release_source` / `release_id` → groove-catalog `GET /catalog/library/releases/{source}/{id}/edition` (`draft.tracklist`: `position`, `duration_ms`), once per record. If the edition fails, it uses `.../tracks`, which only has the tracks that have already played, and reads again next time |
+| stylus | groove-catalog `GET /catalog/stylus` → `metrics.stylus_hours_total`, `metrics.wear_percent`, every 10 min; empty if `active` is false |
+| streaming, codec, sample rate, bits, bitrate | the groove-detector transport file, `/tmp/groove-transport.json` (`source`, `active`, `codec`, `samplerate`, `bitdepth`, `bitrate`), every 1 s; empty with no file or with `active` false. The bitrate only exists on Bluetooth with SBC, AAC or aptX |
+| side ended | on the last track of the side, less than 30 s from its end by the catalog duration, identity opened a new capture (`recognition.epoch` > `playback.epoch`: the listener saw the music end) or stopped (`playback.active` false); holds until the next track or 15 min |
 
-Os endereços dos dois serviços e o arquivo são opções da ponte (`-identity`, `-catalog`, padrão `127.0.0.1`;
-`-transport`, padrão `/tmp/groove-transport.json`).
+The addresses of the two services and the file are bridge options (`-identity`, `-catalog`, default `127.0.0.1`;
+`-transport`, default `/tmp/groove-transport.json`).

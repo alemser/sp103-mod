@@ -1,16 +1,16 @@
-"""Aperta o botão Function da frente do amp, por dentro.
+"""Presses the Function button on the amp's front panel, from the inside.
 
-Ligação (docs/proxy-ligacao.md):
+Wiring (docs/proxy-ligacao.md):
 
-    GP0 = perna 6 do controlador     GP1 = perna 13 do controlador
+    GP0 = controller leg 6     GP1 = controller leg 13
 
-O controlador pulsa a perna 6 e lê a perna 13: com o botão apertado, a perna 13 cai junto com a 6
-(captura de 2026-11-06). O PIO imita isso: dentro de cada pulso longo do GP0, puxa o GP1 para 0.
+The controller pulses leg 6 and reads leg 13: with the button pressed, leg 13 falls together with leg 6
+(capture from 2026-11-06). The PIO imitates that: inside each long pulse on GP0, it pulls GP1 to 0.
 
-REGRA DE SEGURANÇA: o GP0 nunca é saída. O GP1 nunca vai a 1: o valor de saída fica em 0 e só a
-direção muda, a 2 mA. A perna 13 sobe por um resistor de 4,7 kΩ, então puxar custa cerca de 1 mA.
+SAFETY RULE: GP0 is never an output. GP1 is never driven to 1: its output value stays 0 and only the
+direction changes, at 2 mA. Leg 13 rises through a 4.7 kΩ resistor, so pulling it costs about 1 mA.
 
-Em cerca de 1 clique a cada 8, o amp também escolhe a entrada PHONO. O control.py corrige isso.
+On about 1 click in 8, the amp also selects the PHONO input. control.py corrects that.
 """
 
 import time
@@ -26,14 +26,14 @@ _DRIVE_MASK = 0x3 << 4
 
 @rp2.asm_pio(set_init=rp2.PIO.IN_LOW)
 def _mirror():
-    # A 10 MHz. Os pulsos da perna 6 duram 25 a 30 µs, com alguns de 5 a 10 µs. Só os longos contam, e
-    # a perna 13 sobe antes do fim do pulso.
-    wait(0, gpio, 0)            # perna 6 em 0
+    # At 10 MHz. Leg 6 pulses last 25 to 30 µs, with some of 5 to 10 µs. Only the long ones count, and
+    # leg 13 rises before the end of the pulse.
+    wait(0, gpio, 0)            # leg 6 at 0
     set(x, 31)
     label("settle")
-    jmp(x_dec, "settle") [3]    # 12,8 µs
-    jmp(pin, "done")            # já subiu: pulso curto
-    set(pindirs, 1)             # perna 13 em 0
+    jmp(x_dec, "settle") [3]    # 12.8 µs
+    jmp(pin, "done")            # already rose: short pulse
+    set(pindirs, 1)             # leg 13 at 0
     set(x, 24)
     label("hold")
     jmp(x_dec, "hold") [3]      # 10 µs
@@ -44,7 +44,7 @@ def _mirror():
 
 class Panel:
     def __init__(self, sm_id=6):
-        # sm_id 6 = PIO1, máquina 2 (0 é do busy.py e 1 é do ir.py).
+        # sm_id 6 = PIO1, state machine 2 (0 is busy.py's and 1 is ir.py's).
         Pin(PIN_SCAN, Pin.IN, pull=None)
         Pin(PIN_READ, Pin.IN, pull=None)
         self.sm = rp2.StateMachine(sm_id, _mirror, freq=10_000_000, set_base=Pin(PIN_READ),
@@ -52,7 +52,7 @@ class Panel:
         self.sm.exec("set(pins, 0)")
         self.sm.exec("set(pindirs, 0)")
         pad = _PADS_BANK0 + 4 + 4 * PIN_READ
-        mem32[pad] = mem32[pad] & ~_DRIVE_MASK & ~1     # 2 mA, borda lenta
+        mem32[pad] = mem32[pad] & ~_DRIVE_MASK & ~1     # 2 mA, slow edge
 
     def press(self):
         self.sm.active(1)

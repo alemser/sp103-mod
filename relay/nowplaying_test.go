@@ -46,7 +46,7 @@ func TestTargetsByMask(t *testing.T) {
 	if got := r.targets(now, maskInfo); len(got) != 1 || got[0] != both {
 		t.Errorf("info targets = %v", got)
 	}
-	r.subscribe(both, maskInfo, now) // o Pico desligou o VU
+	r.subscribe(both, maskInfo, now) // the Pico turned the VU off
 	if n := len(r.targets(now, maskVU)); n != 1 {
 		t.Errorf("VU targets after mask change = %d", n)
 	}
@@ -173,8 +173,8 @@ func TestSideOf(t *testing.T) {
 	}
 }
 
-// fakeGroove simula o identity e o catálogo do Pi 5. A edição tem o disco inteiro; a
-// biblioteca (/tracks), só as faixas que já tocaram.
+// fakeGroove simulates the Pi 5's identity and catalog. The edition has the whole record;
+// the library (/tracks) only the tracks that have already played.
 type fakeGroove struct {
 	status       string
 	noEdition    bool
@@ -212,8 +212,9 @@ func playing(pos string, posMs, durMs int) string {
 	return playingEpochs(pos, posMs, durMs, 984, 984)
 }
 
-// playingEpochs é o /status com a captura da faixa mostrada (playback) e a de agora
-// (recognition): o fim da música abre uma captura nova antes de o identity largar a faixa.
+// playingEpochs is the /status with the capture of the track shown (playback) and the
+// current one (recognition): the end of the music opens a new capture before identity
+// drops the track.
 func playingEpochs(pos string, posMs, durMs int, playbackEpoch, captureEpoch uint64) string {
 	return fmt.Sprintf(`{"playback":{"active":true,"epoch":%d,"artist":"Pink Floyd","title":"Some Track",
 		"track_position":%q,"position_ms":%d,"duration_ms":%d},"recognition":{"phase":"identifying","epoch":%d},
@@ -247,7 +248,7 @@ func TestNowPlayingRead(t *testing.T) {
 		t.Errorf("stylus not refreshed after %v", stylusEvery)
 	}
 
-	// A última faixa do lado chega ao fim e o reconhecimento para: "Flip the record".
+	// The last track of the side reaches its end and recognition stops: "Flip the record".
 	g.status = playing("A5", 270000, 284000)
 	np.read(now.Add(2 * time.Second))
 	g.status = `{"playback":{"active":false}}`
@@ -262,8 +263,8 @@ func TestNowPlayingRead(t *testing.T) {
 		t.Error("side end should expire")
 	}
 
-	// A música da última faixa acaba antes da duração do catálogo (Exodus, 2026-10-30): o
-	// identity abre a captura do sulco final e ainda mostra a faixa. O lado acabou ali.
+	// The music of the last track ends before the catalog duration (Exodus, 2026-10-30):
+	// identity opens the run-out groove capture and still shows the track. The side ended there.
 	g.status = playingEpochs("A5", 260000, 284000, 984, 984)
 	np.read(now.Add(30 * time.Minute))
 	g.status = playingEpochs("A5", 272000, 284000, 984, 993)
@@ -279,13 +280,13 @@ func TestNowPlayingRead(t *testing.T) {
 		t.Errorf("next side: %+v", in)
 	}
 
-	// Uma captura nova no meio do lado (troca de faixa) não é fim de lado.
+	// A new capture mid-side (track change) is not the end of the side.
 	g.status = playingEpochs("A2", 150000, 163000, 1000, 1001)
 	if in = np.read(now.Add(50 * time.Minute)); !in.Playing || in.SideEnd {
 		t.Errorf("track change mid-side: %+v", in)
 	}
 
-	// Parou no meio do lado: só "não tocando".
+	// Stopped mid-side: just "not playing".
 	g.status = playing("A2", 10000, 163000)
 	np.read(now.Add(time.Hour))
 	g.status = `{"playback":{"active":false}}`
@@ -294,8 +295,8 @@ func TestNowPlayingRead(t *testing.T) {
 	}
 }
 
-// Disco novo: a biblioteca só tem a A1, mas a edição tem o lado inteiro. O fim da A1
-// (captura nova) é troca de faixa, não fim de lado (All Shook Down, 2026-11-07).
+// New record: the library only has A1, but the edition has the whole side. The end of A1
+// (new capture) is a track change, not the end of the side (All Shook Down, 2026-11-07).
 func TestNowPlayingNewRecordFirstTrack(t *testing.T) {
 	g := &fakeGroove{status: playingEpochs("A1", 50000, 67000, 10, 10)}
 	srv := g.server()
@@ -311,7 +312,7 @@ func TestNowPlayingNewRecordFirstTrack(t *testing.T) {
 	}
 }
 
-// Sem a edição, a biblioteca serve, mas não fica guardada: pode estar incompleta.
+// Without the edition, the library will do, but it is not cached: it may be incomplete.
 func TestNowPlayingLibraryFallback(t *testing.T) {
 	g := &fakeGroove{status: playing("A1", 10000, 67000), noEdition: true}
 	srv := g.server()

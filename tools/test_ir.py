@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Confere os bits de firmware/ir_codes.py contra o perfil do SP103 no groove-rig.
+"""Checks the bits in firmware/ir_codes.py against the SP103 profile in groove-rig.
 
     python3 tools/test_ir.py
 """
@@ -15,12 +15,12 @@ sys.path.insert(0, os.path.join(HERE, "..", "firmware"))
 import ir_codes   # noqa: E402
 
 PROFILE = os.path.expanduser("~/Projects/groove-rig/internal/catalog/profiles/acoustic_solutions_sp103.yaml")
-TICK_US = 269 / 8.192           # unidade de tempo do Broadlink
-LONG_US = 1000                  # acima disto, o espaço é um bit 1
+TICK_US = 269 / 8.192           # Broadlink time unit
+LONG_US = 1000                  # above this, the space is a 1 bit
 
 
 def captured(body):
-    """Os tempos em µs de um código do Broadlink, até o fim do primeiro aviso de repetição."""
+    """The timings in µs of a Broadlink code, up to the end of the first repeat signal."""
     data = base64.b64decode(body)
     payload = data[4:4 + (data[2] | data[3] << 8)]
     times, i = [], 0
@@ -40,12 +40,12 @@ with open(PROFILE) as f:
 assert set(codes) == set(ir_codes.COMMANDS)
 for name, body in codes.items():
     words = ir_codes.frame(name)
-    # Pares de linha em 0 e solta: o PIO termina sempre esperando a próxima linha em 0.
+    # Pairs of line low and released: the PIO always ends waiting for the next line-low.
     assert len(words) % 2 == 0
     want = captured(body)
     assert len(want) == len(words) - 1, name
-    # Só os bits: os tempos do Broadlink são cerca de 5% mais longos que os do controle real.
+    # Bits only: the Broadlink timings are about 5% longer than the real remote's.
     for i, (a, b) in enumerate(zip(words, want)):
         assert (a > LONG_US) == (b > LONG_US), (name, i, a, round(b))
 
-print("tudo certo")
+print("all good")
