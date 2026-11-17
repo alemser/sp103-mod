@@ -1,6 +1,6 @@
 """What a person may change on the bridge (names.json, see names.py), over HTTP.
 
-    GET   /settings   {"<id>": value, ...}                    (contract v2: amp-link docs/contract-v2.md, Settings)
+    GET   /settings   {"<id>": value, ...}                    (contract v2: device-link docs/contract-v2.md, Settings)
     PATCH /settings   only the ids that change; answers the whole object, or 400 {"error", "id"}
 
 The ids flatten names.json: "inputs.TUNER", "boot.0", "vu.on", "info.show.stylus", "info.turntable.PHONO". fields()

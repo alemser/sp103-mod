@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests the Pico's Wi-Fi (firmware/wifi.py) on the computer, with a fake Wi-Fi chip.
 
-This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+This file belongs to the shared base (device-link, firmware-base/): change it there and copy it with copiar.py, never here.
 
     python3 tools/test_wifi.py
 """

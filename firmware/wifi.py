@@ -1,6 +1,6 @@
 """The Pico's Wi-Fi: the home network, the setup network, and discovery by the app.
 
-This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+This file belongs to the shared base (device-link, firmware-base/): change it there and copy it with copiar.py, never here.
 
 The home network lives in wifi.json (written by the setup, never by OTA). Without it, secrets.py's WIFI_SSID and
 WIFI_PASSWORD apply, for Picos installed before this version.

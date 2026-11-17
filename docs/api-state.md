@@ -8,7 +8,7 @@ groove-rig (the amplifier's "state provider") can rely on; changes to it must al
 
 | Route | What |
 |---|---|
-| `GET /device` | Who the bridge is and what it can do: the DeviceLink contract `api` 2 (`docs/contract-v2.md`, in the amp-link repository) since 2026-11-17, with the state fields, the remote and the settings (`firmware/device.py`) |
+| `GET /device` | Who the bridge is and what it can do: the DeviceLink contract `api` 2 (`docs/contract-v2.md`, in the device-link repository) since 2026-11-17, with the state fields, the remote and the settings (`firmware/device.py`) |
 | `GET /settings`, `PATCH /settings` | The person-editable configuration (input names, boot screens, VU, info screens) as flat ids, `{"inputs.TUNER": "Rega Planar 2", "vu.on": true, ...}`. `PATCH` takes only what changes; a refusal is `400 {"error", "id"}` (`firmware/settings.py`) |
 | `GET /status` | The bridge's counters (bus reads and writes, VU, info screens), for diagnosis |
 | `GET /state` | The current state, as JSON |

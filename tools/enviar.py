@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Sends the new program to the Pico over Wi-Fi (firmware/ota.py) and follows it until it confirms.
 
-This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+This file belongs to the shared base (device-link, firmware-base/): change it there and copy it with copiar.py, never here.
 
     python3 tools/enviar.py                    # sends what changed in firmware/, deletes from the Pico the .py
                                                # files that no longer exist, and applies

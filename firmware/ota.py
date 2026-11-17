@@ -1,6 +1,6 @@
 """Firmware update over Wi-Fi, with automatic rollback.
 
-This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+This file belongs to the shared base (device-link, firmware-base/): change it there and copy it with copiar.py, never here.
 
 Used by tools/enviar.py on the computer and by the DeviceLink app (docs/contract-v2.md). No password: the routes are on
 the home LAN only, and a bad version rolls itself back.

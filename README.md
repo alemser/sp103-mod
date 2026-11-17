@@ -38,7 +38,7 @@ Function button ◄──(GP0 reads, GP1 pulls to 0 only)── Pico 2 W
 
 | What for | How |
 |---|---|
-| See the amp's state | the DeviceLink app (amp-link repository): it finds the amp on the network and builds its screen from `/device` (contract `api` 2, since 2026-11-17) |
+| See the amp's state | the DeviceLink app (device-link repository): it finds the amp on the network and builds its screen from `/device` (contract `api` 2, since 2026-11-17) |
 | Change the input names, the start screens, the VU and the info screens | the app, the amp's Settings sections (up to 16 characters, no accents), or `PATCH /settings` (`docs/api-state.md`) |
 | Control the amp | the app (power, volume, input, tone, loudness, speakers), or `curl -X POST "http://sp103.local/control?target=bass&dir=up"` (`docs/api-state.md`) |
 | See the bus | `curl http://sp103.local/status` (the counters) and `curl http://sp103.local/bus` |
@@ -67,9 +67,9 @@ Function button ◄──(GP0 reads, GP1 pulls to 0 only)── Pico 2 W
 
 - `firmware/`: the Pico's program (MicroPython). `main.py` and `secrets.py` only go over the cable; the Wi-Fi network lives in
   `wifi.json`, written through the Pico's setup network.
-  - **Copies of the shared base** (repository `amp-link`, folder `firmware-base/`): `wifi.py`, `web.py`, `ota.py`, `udp.py`
+  - **Copies of the shared base** (repository `device-link`, folder `firmware-base/`): `wifi.py`, `web.py`, `ota.py`, `udp.py`
     and `listeners.py`, plus `tools/enviar.py`, `tools/test_wifi.py` and `tools/test_listeners.py`. Change them there and
-    copy with `python3 ../amp-link/firmware-base/copiar.py --skip firmware/main.py`, never here. `main.py` stays this
+    copy with `python3 ../device-link/firmware-base/copiar.py --skip firmware/main.py`, never here. `main.py` stays this
     project's own (it imports `escuta.py` and shows errors on the LCD).
   - `device.py` (`/device`, contract `api` 2) and `settings.py` (`/settings`) describe the amp to the app; `GET /status` gives the counters.
 - `relay/`: the VU bridge (`sp103-vu-relay`, Go), which runs on the board with the groove-detector.

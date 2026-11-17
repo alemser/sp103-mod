@@ -14,7 +14,7 @@ music is playing; each controller redraw brings the amp screen back for 3 s. Wit
 screens enabled (info.py receives, screens.py chooses), the display also shows the stylus
 (on the turntable) and the Bluetooth quality (on DAB). The standby clock was removed on 2026-11-16.
 
-Publishes the state on the network (web.py; the client is the app in the amp-link
+Publishes the state on the network (web.py; the client is the app in the device-link
 repository), with /bus and updates over Wi-Fi, like the listener. Without Wi-Fi, the
 display keeps working.
 

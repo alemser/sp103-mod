@@ -1,6 +1,6 @@
 """The Pico's HTTP server: publishes the device's state on the network (Wi-Fi is in wifi.py).
 
-This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+This file belongs to the shared base (device-link, firmware-base/): change it there and copy it with copiar.py, never here.
 
     GET /state    the state as JSON
     GET /events   Server-Sent Events: one "data: {json}" on change (at most 4 per second, always the latest)

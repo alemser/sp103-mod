@@ -6,7 +6,7 @@ version** if the new one does not work. It can be sent from the computer (`tools
 which installs the latest GitHub release of this repository.
 
 **No password since 2026-11-17** (version 973fed99): `ota.py`, `enviar.py` and the other shared files now come from the
-bridges' shared base (amp-link `firmware-base/`, copied with `copiar.py --skip firmware/main.py`), as decided for
+bridges' shared base (device-link `firmware-base/`, copied with `copiar.py --skip firmware/main.py`), as decided for
 contract v2. Before that, every request carried an `X-Password` header; the history below mentions it.
 
 Programs: `firmware/ota.py` (on the Pico, receives), `firmware/main.py` (on the Pico, decides whether to roll back) and `tools/enviar.py` (on the

@@ -1,6 +1,6 @@
 """Read a UDP socket without waiting, and without an error when the queue is empty (vu.py, info.py).
 
-This file belongs to the shared base (amp-link, firmware-base/): change it there and copy it with copiar.py, never here.
+This file belongs to the shared base (device-link, firmware-base/): change it there and copy it with copiar.py, never here.
 
 A bridge's main loop may ask for packets about 1000 times a second. On a non-blocking socket, recv() with an empty
 queue raises OSError: each error is a new object in memory, and the garbage makes the collector run more often (each
