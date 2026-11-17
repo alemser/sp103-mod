@@ -29,6 +29,10 @@ options = d["controls"][2]["select"]["options"]
 assert [o["name"] for o in options] == list(INPUTS)
 assert [o["id"] for o in options] == ["phono", "tuner", "tape_aux", "cd", "dvd", "dab"]
 assert set(device.keys()) <= set(ir_codes.COMMANDS), "every key is one the IR sender knows"
+named = device.describe("abcd1234", "SP103-D4FE", {"TUNER": "Rega Planar 2"})["controls"][2]["select"]["options"]
+assert [o["name"] for o in named[:3]] == ["PHONO", "Rega Planar 2", "TAPE/AUX"], "the chips carry the chosen names"
+assert named[1]["key"] == "select_tuner" and named[1]["id"] == "tuner"
+assert device.CONTROLS[2]["select"]["options"] == [], "describe() does not change the template"
 assert d["state"][0]["id"] == "power"
 size = len(json.dumps(device.describe("abcd1234", "SP103-D4FE")))
 assert size < 6000, "the description stays small: %d bytes" % size

@@ -81,6 +81,7 @@ log = BusLog(bus)
 net = Wifi(model=device.NAME, hostname=device.NAME, prefix=device.NAME.upper(),   # home network, setup, discovery
            label=device.MODEL, kind=device.KIND, api=device.API)
 device.net = net
+device.input_names = lambda: texts["inputs"]
 pub = None
 wifi_ok = False
 listen_ticks = 0                        # listener loop count: shows it has not hung
@@ -170,6 +171,7 @@ def set_texts(cfg):
     global texts
     texts = names.validate(cfg)
     names.save(texts)
+    device.forget()                     # the input chips in /device carry the names
     if state.set_names(texts["inputs"], time.ticks_ms()):
         pub.changed()
     configure_feeds(texts)
