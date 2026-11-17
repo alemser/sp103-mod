@@ -116,7 +116,7 @@ def apply(c):
     current["cfg"] = c
 
 
-routes = settings.Routes(lambda: current["cfg"], apply, lambda: {"proxy": {"reads": 1}})
+routes = settings.Routes(lambda: current["cfg"], apply)
 run = asyncio.run
 run(routes.handle(request("GET", "/settings"), None))
 assert answers[-1] == ("200 OK", flat)
@@ -127,7 +127,5 @@ assert answers[-1][0] == "400 Bad Request" and answers[-1][1]["id"] == "info.sec
 run(routes.handle(request("PATCH", "/settings", b'not json'), None))
 assert answers[-1][0] == "400 Bad Request"
 run(routes.handle(request("GET", "/names"), None))
-assert answers[-1][1]["config"]["inputs"]["DVD"] == "Apple TV" and answers[-1][1]["proxy"] == {"reads": 1}
-run(routes.handle(request("PUT", "/names", b'{"inputs": {"PHONO": "Rega"}}'), None))
-assert answers[-1][1]["config"]["inputs"] == {"PHONO": "Rega"}, "PUT /names still replaces everything"
+assert answers[-1][0] == "404 Not Found", "the contract v1 route is gone"
 print("all good")

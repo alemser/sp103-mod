@@ -2,8 +2,6 @@
 
     GET   /settings   {"<id>": value, ...}                    (contract v2: amp-link docs/contract-v2.md, Settings)
     PATCH /settings   only the ids that change; answers the whole object, or 400 {"error", "id"}
-    GET   /names      the whole configuration, as in contract v1, plus the bridge's counters
-    PUT   /names      replaces it (contract v1); kept for curl and older apps
 
 The ids flatten names.json: "inputs.TUNER", "boot.0", "vu.on", "info.show.stylus", "info.turntable.PHONO". FIELDS is
 the description's "settings" list (device.py). to_flat() and patch() run the same on the Pico and on the computer
@@ -15,7 +13,7 @@ import json
 import names
 from amp_state import INPUTS
 
-DEFAULTS = {"boot": ["ACOUSTIC", "SOLUTIONS"], "about": ["Amplifier SP103", "SW version 1.0"]}
+DEFAULTS = {"boot": ["ACOUSTIC", "SOLUTIONS"], "about": ["Amplifier SP103", "SW version 1.0"]}   # the amp's own
 INFO_MODES = ("temp", "fixed")
 
 
@@ -124,34 +122,25 @@ def patch(cfg, changes):
 
 
 class Routes:
-    """/settings and /names. get_cfg() gives the current names.json; apply(cfg) saves and applies a valid one;
-    extra() adds the bridge's counters to GET /names."""
+    """/settings. get_cfg() gives the current names.json; apply(cfg) saves and applies a valid one."""
 
-    def __init__(self, get_cfg, apply, extra=None):
+    def __init__(self, get_cfg, apply):
         self.get_cfg = get_cfg
         self.apply = apply
-        self.extra = extra
 
     async def handle(self, req, writer):
         from web import reply, reply_json
         body = await req.reader.readexactly(req.length) if req.length else b""
+        if req.path != "/settings":
+            return await reply(writer, "404 Not Found", "text/plain", b"not found\n")
         error = None
         try:
-            if req.path == "/settings" and req.method == "PATCH":
+            if req.method == "PATCH":
                 self.apply(patch(self.get_cfg(), json.loads(body)))
-            elif req.path == "/names" and req.method == "PUT":
-                self.apply(names.validate(json.loads(body)))
         except SettingError as e:
             error = {"error": str(e), "id": e.id}
         except ValueError as e:         # invalid JSON, or text refused by names.validate
             error = {"error": str(e)}
         if error:
             return await reply_json(writer, error, "400 Bad Request")
-        if req.path == "/settings":
-            return await reply_json(writer, to_flat(self.get_cfg()))
-        if req.path == "/names":
-            answer = {"config": self.get_cfg(), "inputs": names.INPUTS, "defaults": DEFAULTS}
-            if self.extra:
-                answer.update(self.extra())
-            return await reply_json(writer, answer)
-        await reply(writer, "404 Not Found", "text/plain", b"not found\n")
+        await reply_json(writer, to_flat(self.get_cfg()))

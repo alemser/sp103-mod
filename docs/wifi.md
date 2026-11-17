@@ -23,8 +23,9 @@ Decided on 2026-11-08, after testing both approaches on the bench:
    later. If the new network fails, it goes back to the previous one and says why.
 4. **Changing network with the Pico connected:** `POST /wifi/setup` opens the setup network for 10 minutes, without leaving the
    home network.
-5. **Finding the Pico:** the app sends `AMPLINK?` by UDP broadcast, port **47800**, and the Pico answers
-   `{"name": "SP103-D85E", "model": "sp103", "ip": "192.168.1.77"}`. Send it about 3 times in 2 s: the first packet is
+5. **Finding the Pico:** the app sends `DEVICELINK?` by UDP broadcast, port **47800**, and the Pico answers
+   `{"name": "SP103-D85E", "model": "sp103", "ip": "192.168.1.77", "api": 2, "label": "Acoustic Solutions SP103",
+   "kind": "amplifier"}`. Send it about 3 times in 2 s: the first packet is
    sometimes lost.
 
 The setup network is only open when the Pico has no Wi-Fi (or for 10 minutes, when requested). A fixed password

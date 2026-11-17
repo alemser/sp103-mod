@@ -85,7 +85,7 @@ OUT's R is probably not even measured. With a stereo line capture, the VU shows 
 or the bridge; only the gain needs recalibrating in the groove-detector.
 
 If the VU errors on the Pico, it turns itself off and the display carries on with the amp's screen; the app shows the error.
-Diagnostics at `http://sp103.local/names`, field `vu` (frames received, age of the last one, music).
+Diagnostics at `http://sp103.local/status`, field `vu` (frames received, age of the last one, music).
 
 ## Installing the bridge
 

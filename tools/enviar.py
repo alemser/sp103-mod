@@ -14,7 +14,7 @@ Options: --host and --force (send even unchanged files). The bridge's name comes
 "mr780"): the default host is <name>.local, or the <NAME>_HOST variable. If the host doesn't answer, the Pico is found
 by discovery (UDP broadcast, as the app does). The old Portuguese flags (--estado, --voltar, --forcar) still work.
 
-No password (contract v2). Bridges still on the old ota.py ask for firmware/secrets.py's UPDATE_PASSWORD.
+No password (contract v2).
 
 Never sends main.py or secrets.py: those go by USB only, with mpremote.
 """
@@ -40,24 +40,8 @@ TRIAL_S = 180                   # the same as main.py
 WAIT_S = TRIAL_S + 90           # restart + Wi-Fi + trial
 
 
-def password():
-    """Only for bridges still running the old ota.py, which asked for one; the current one takes no password.
-    Sent when firmware/secrets.py (or <NAME>_PASSWORD) has it, ignored by bridges that don't need it."""
-    if os.environ.get(NAME.upper() + "_PASSWORD"):
-        return os.environ[NAME.upper() + "_PASSWORD"]
-    values = {}
-    try:
-        with open(os.path.join(FIRMWARE, "secrets.py")) as f:
-            exec(f.read(), values)
-    except OSError:
-        pass
-    return values.get("UPDATE_PASSWORD") or None
-
-
-def request(host, method, path, body=None, pw=None, timeout=10):
+def request(host, method, path, body=None, timeout=10):
     req = urllib.request.Request("http://%s%s" % (host, path), data=body, method=method)
-    if pw:
-        req.add_header("X-Password", pw)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.load(r)
@@ -87,8 +71,6 @@ def show(st):
     print("Version on the Pico: %s   state: %s%s" % (
         st["version"], st["state"], "  (%s)" % st["why"] if st.get("why") else ""))
     print("Previous version kept: %s" % (st["previous"] or "none"))
-    if not st["enabled"]:
-        print("This bridge runs the old ota.py, which needs UPDATE_PASSWORD in its secrets.py.")
 
 
 def publish(repo):
@@ -140,7 +122,7 @@ def local_files(names):
 def rollback_trial(host, timeout=60):
     """Asks for the rollback once the trial started, even when the POST's answer was lost."""
     try:
-        request(host, "POST", "/update/rollback", b"", password())
+        request(host, "POST", "/update/rollback", b"")
     except (http.client.RemoteDisconnected, ConnectionError, OSError, urllib.error.URLError):
         pass                            # confirmed by the state below; the answer may have been lost
     started = time.time()
@@ -204,15 +186,14 @@ def wait(host, expected, expected_files, started):
 
 
 def discover(model=NAME, tries=3, listen_s=0.7):
-    """The Pico's IP from wifi.py's discovery (UDP broadcast "DEVICELINK?" and "AMPLINK?", port 47800), or None."""
+    """The Pico's IP from wifi.py's discovery (UDP broadcast "DEVICELINK?", port 47800), or None."""
     import socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.settimeout(listen_s)
     try:
         for _ in range(tries):
-            for probe in (b"DEVICELINK?", b"AMPLINK?"):
-                sock.sendto(probe, ("255.255.255.255", 47800))
+            sock.sendto(b"DEVICELINK?", ("255.255.255.255", 47800))
             try:
                 while True:
                     data, _addr = sock.recvfrom(256)
@@ -256,13 +237,12 @@ def main():
     if args.status:
         return
 
-    pw = password()
     if args.rollback:
         if not st["previous"]:
             sys.exit("No previous version kept on the Pico.")
         if st["previous"] == st["version"]:
             sys.exit("The Pico already runs the kept version (%s): nothing to go back to." % st["version"])
-        request(host, "POST", "/update/rollback", b"", pw)
+        request(host, "POST", "/update/rollback", b"")
         print("Going back to version %s..." % st["previous"])
         started = time.time()
         while time.time() - started < 60:
@@ -298,10 +278,10 @@ def main():
 
     if send:
         print("\nSending %d file(s):" % len(send))
-    request(host, "POST", "/update/cancel", b"", pw)
+    request(host, "POST", "/update/cancel", b"")
     for name, data in send.items():
         try:
-            got = request(host, "PUT", "/update/" + name, data, pw, timeout=30)
+            got = request(host, "PUT", "/update/" + name, data, timeout=30)
         except (http.client.RemoteDisconnected, ConnectionError, OSError, urllib.error.URLError) as e:
             # Some MicroPython builds close the connection after writing the body, before the JSON answer reaches
             # the computer. The staged name only proves it reached the temporary file; integrity is checked by the
@@ -318,7 +298,7 @@ def main():
     if remove:
         print("\nDeleting from the Pico %d file(s) no longer in firmware/:" % len(remove))
         for name in remove:
-            request(host, "DELETE", "/update/" + name, None, pw)
+            request(host, "DELETE", "/update/" + name, None)
             print("  %-20s marked" % name)
 
     expected_files = dict(st["files"])
@@ -327,7 +307,7 @@ def main():
         del expected_files[name]
     expected = version(expected_files)
     try:
-        request(host, "POST", "/update/apply", b"", pw)
+        request(host, "POST", "/update/apply", b"")
     except (http.client.RemoteDisconnected, ConnectionError, OSError, urllib.error.URLError):
         # The answer may vanish if the Pico starts its reset right after accepting the apply.
         pass

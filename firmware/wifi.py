@@ -21,9 +21,9 @@ connected, the setup network closes by itself after CLOSE_SETUP_AFTER_S, time fo
     DELETE /wifi            forgets the saved network (only with the setup network open)
     GET    /                the setup page, only with the setup network open
 
-Discovery: the app broadcasts "AMPLINK?" (or "DEVICELINK?", contract v2) on UDP port DISCOVERY_PORT and the Pico
-answers {"name", "model", "ip"}, plus "label" (the full name, to show), "kind" (the type of device) and "api" (the
-contract version) when the bridge provides them. So the app finds the Pico without a fixed IP and knows what it found.
+Discovery: the app broadcasts "DEVICELINK?" on UDP port DISCOVERY_PORT and the Pico answers {"name", "model", "ip",
+"api"}, plus "label" (the full name, to show) and "kind" (the type of device) when the bridge provides them
+(docs/contract-v2.md, Discovery). So the app finds the Pico without a fixed IP and knows what it found.
 
 Use (with asyncio):
     net = Wifi(model="mr780", hostname="mr780", prefix="MR780",     # each bridge with its own (device.py)
@@ -42,7 +42,7 @@ import udp
 
 SETUP_KEY = "amplink-setup"
 SETUP_PREFIX = "AmpLink-"
-PROBES = (b"AMPLINK?", b"DEVICELINK?")  # discovery: api 1 apps ask the first, the DeviceLink app the second
+PROBE = b"DEVICELINK?"          # discovery: what the DeviceLink app broadcasts
 NET_FILE = "wifi.json"
 DISCOVERY_PORT = 47800
 OPEN_SETUP_AFTER_S = 120    # not connected for this long (with a saved network): open the setup network
@@ -101,11 +101,11 @@ def collapse(scan, limit=MAX_NETWORKS):
 
 class Wifi:
     def __init__(self, model, hostname, prefix, net_file=NET_FILE, retry_s=30, quick_tries=3, label="", kind="",
-                 api=0):
+                 api=2):
         self.model = model
         self.label = label              # "Magnat MR 780": for discovery only
         self.kind = kind                # "amplifier", "cd_player"
-        self.api = api                  # contract version, in the discovery answer (0 = not sent: api 1 bridges)
+        self.api = api                  # contract version, in the discovery answer
         self.hostname = hostname
         self.prefix = prefix
         self.net_file = net_file
@@ -325,13 +325,11 @@ class Wifi:
             ip = self.sta.ifconfig()[0]
         else:
             ip = self.ap.ifconfig()[0] if self.setup_open() else ""
-        answer = {"name": self.name, "model": self.model, "ip": ip}
+        answer = {"name": self.name, "model": self.model, "ip": ip, "api": self.api}
         if self.label:
             answer["label"] = self.label
         if self.kind:
             answer["kind"] = self.kind
-        if self.api:
-            answer["api"] = self.api        # contract v2: the app knows the version before asking anything
         return json.dumps(answer)
 
     async def _discovery(self):
@@ -344,7 +342,7 @@ class Wifi:
             try:
                 while udp.ready(poll):
                     data, addr = sock.recvfrom(64)
-                    if data.strip() in PROBES:
+                    if data.strip() == PROBE:
                         sock.sendto(self.answer().encode(), addr)
             except OSError:
                 pass                    # empty queue (without poll) or Wi-Fi dropped midway

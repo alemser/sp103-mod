@@ -167,7 +167,7 @@ def show_own(key, ms, full=False):
 
 
 def set_texts(cfg):
-    """Called by PATCH /settings and PUT /names (settings.py): validates, saves to flash and applies at once."""
+    """Called by PATCH /settings (settings.py): validates, saves to flash and applies at once."""
     global texts
     texts = names.validate(cfg)
     names.save(texts)
@@ -176,6 +176,12 @@ def set_texts(cfg):
         pub.changed()
     configure_feeds(texts)
     draw()
+
+
+async def status_route(req, writer):
+    """GET /status: the bridge's counters (bus, VU, info screens), for diagnosis with curl."""
+    from web import reply_json
+    await reply_json(writer, status())
 
 
 def status():
@@ -314,9 +320,9 @@ async def confirm_update():
 
 async def main():
     global pub
-    config = settings.Routes(lambda: texts, set_texts, status).handle
-    pub = Publisher(state, routes={"/settings": config, "/names": config, "/update": ota.handle, "/bus": log.handle,
-                                   "/device": device.handle, "/ir": remote.handle, "/control": control.handle,
+    config = settings.Routes(lambda: texts, set_texts).handle
+    pub = Publisher(state, routes={"/settings": config, "/status": status_route, "/update": ota.handle,
+                                   "/bus": log.handle, "/device": device.handle, "/ir": remote.handle, "/control": control.handle,
                                    "/wifi": net.handle, "/": net.page})
     log.clear(time.ticks_ms())
     asyncio.create_task(net.task(wifi_result))

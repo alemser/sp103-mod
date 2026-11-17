@@ -172,16 +172,13 @@ assert "DEMO-D85E" in request(net, "GET", "/")[1]
 status, body = request(net, "GET", "/wifi")
 assert status == 200 and body["setup"] == {"open": True, "ssid": "AmpLink-DEMO-D85E"} and body["ssid"] == ""
 assert request(net, "GET", "/wifi/networks")[1][0]["ssid"] == "Casa"
-assert json.loads(net.answer()) == {"name": "DEMO-D85E", "model": "demo", "ip": "192.168.4.1"}
-# The full name and the kind only appear when the bridge provides them: without them, the answer is as before.
+assert json.loads(net.answer()) == {"name": "DEMO-D85E", "model": "demo", "ip": "192.168.4.1", "api": 2}
+# The full name and the kind only appear when the bridge provides them.
 net.label, net.kind = "Demo Player", "cd_player"
-assert json.loads(net.answer()) == {"name": "DEMO-D85E", "model": "demo", "ip": "192.168.4.1",
+assert json.loads(net.answer()) == {"name": "DEMO-D85E", "model": "demo", "ip": "192.168.4.1", "api": 2,
                                     "label": "Demo Player", "kind": "cd_player"}
-# Contract v2 bridges also say their api, and answer the DeviceLink probe as well as the old one.
-net.api = 2
-assert json.loads(net.answer())["api"] == 2
-assert wifi.PROBES == (b"AMPLINK?", b"DEVICELINK?")
-net.label, net.kind, net.api = "", "", 0
+assert wifi.PROBE == b"DEVICELINK?"
+net.label, net.kind = "", ""
 
 # --- setting up: PUT /wifi connects, saves, and the setup network closes 60 s later ---
 

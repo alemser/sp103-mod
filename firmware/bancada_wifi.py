@@ -50,7 +50,7 @@ def show(screen):
 
 
 def set_texts(cfg):
-    """Called by PATCH /settings and PUT /names (settings.py): validates, saves to flash and applies right away."""
+    """Called by PATCH /settings (settings.py): validates, saves to flash and applies right away."""
     global texts
     texts = names.validate(cfg)
     names.save(texts)
@@ -140,7 +140,7 @@ def wifi_result(ok, info):
 async def main():
     global pub
     config = settings.Routes(lambda: texts, set_texts).handle
-    pub = Publisher(state, routes={"/settings": config, "/names": config, "/wifi": net.handle, "/": net.page})
+    pub = Publisher(state, routes={"/settings": config, "/wifi": net.handle, "/": net.page})
     asyncio.create_task(net.task(wifi_result))
     await asyncio.sleep(0.1)            # Wi-Fi starts before the server opens the socket
     await pub.serve()                   # serves as soon as there is a network

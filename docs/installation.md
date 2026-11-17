@@ -137,7 +137,7 @@ same number (11 jumpers).
 
 ## Diagnostics
 
-- **`http://sp103.local/names`**, field `proxy`:
+- **`http://sp103.local/status`**, field `proxy`:
   - `reads` and `writes`: controller reads and writes since the Pico booted.
   - `busy_high`: reads in which the controller saw "busy" after the Pico was already answering. **Must stay at 0.** At
     boot, the controller waits a few milliseconds while the Pico starts; those reads do not count.
