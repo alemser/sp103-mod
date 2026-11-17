@@ -1,18 +1,18 @@
 """GET /device: who this bridge is and what it can do, in the DeviceLink contract api 2 (device-link docs/contract-v2.md).
 
-The app builds the SP103's screen from this: the state fields to show, the remote in groups (power, volume, input,
-tone, switches) and the settings (settings.py). The JSON is built on the first request and served as stored bytes
-afterwards; only a change to the input names rebuilds it (the input chips and the turntable choices carry the names
-the person chose).
+The app builds the SP103's screen from this: the device, the state fields to show and the remote in groups (power,
+volume, input, tone, switches). Nothing else: the display texts, the VU and the info screens are the SP103's own
+extras, edited on its own page (config_page.py, settings.py), outside the contract. The JSON is built on the first
+request and served as stored bytes afterwards; only a change to the input names rebuilds it (the input chips carry
+the names the person chose on that page).
 
-/state keeps the contract v1 fields (volume_db, input_id, bass_db...), which groove-rig also reads.
+/state keeps the flat amplifier fields (volume_db, input_id, bass_db...), which groove-rig also reads.
 
 describe() runs the same in MicroPython (Pico) and in the computer's Python (tools/test_device.py).
 """
 
 import json
 
-import settings
 from amp_state import INPUTS, INPUT_IDS
 
 API = 2                         # only changes when something stops being compatible
@@ -20,7 +20,7 @@ NAME = "sp103"                  # the discovery and network name (sp103.local, A
 KIND = "amplifier"
 MODEL = "Acoustic Solutions SP103"
 FIRMWARE = "alemser/sp103-mod"  # the GitHub repository whose releases carry this firmware (enviar.py --publish)
-FEATURES = ("control", "settings", "update", "wifi_setup")
+FEATURES = ("control", "update", "wifi_setup")
 
 STATE = (
     {"id": "power", "type": "enum", "values": ["on", "standby"]},
@@ -51,7 +51,7 @@ _cached = None
 
 
 def forget():
-    """The input names changed (proxy.set_texts): the next GET /device rebuilds the description."""
+    """The input names changed (proxy.set_texts, from the SP103's page): the next GET /device rebuilds the description."""
     global _cached
     _cached = None
 
@@ -65,8 +65,7 @@ def describe(version, name, custom=None):
             g = {"group": g["group"], "select": {"state": g["select"]["state"], "options": options}}
         controls.append(g)
     return {"api": API, "kind": KIND, "model": MODEL, "name": name, "bridge_version": version,
-            "firmware": FIRMWARE, "features": list(FEATURES), "state": list(STATE), "controls": controls,
-            "settings": settings.fields(custom)}
+            "firmware": FIRMWARE, "features": list(FEATURES), "state": list(STATE), "controls": controls}
 
 
 def keys():

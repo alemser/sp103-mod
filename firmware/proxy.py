@@ -15,8 +15,9 @@ screens enabled (info.py receives, screens.py chooses), the display also shows t
 (on the turntable) and the Bluetooth quality (on DAB). The standby clock was removed on 2026-11-16.
 
 Publishes the state on the network (web.py; the client is the app in the device-link
-repository), with /bus and updates over Wi-Fi, like the listener. Without Wi-Fi, the
-display keeps working.
+repository), with /bus and updates over Wi-Fi, like the listener. The display texts, the
+VU and the info screens are changed on the SP103's own page (config_page.py, GET /),
+not through the app. Without Wi-Fi, the display keeps working.
 
 Commands the amp over the IR line, turns the amp on when someone turns the volume knob in
 standby (ir.py) and presses the Function button from inside (panel.py). The direct
@@ -41,6 +42,7 @@ front_panel = panel.Panel()
 import time
 import asyncio
 
+import config_page
 import info as info_feed
 import names
 import device
@@ -81,6 +83,7 @@ log = BusLog(bus)
 net = Wifi(model=device.NAME, hostname=device.NAME, prefix=device.NAME.upper(),   # home network, setup, discovery
            label=device.MODEL, kind=device.KIND, api=device.API)
 device.net = net
+config_page.net = net
 device.input_names = lambda: texts["inputs"]
 pub = None
 wifi_ok = False
@@ -167,7 +170,7 @@ def show_own(key, ms, full=False):
 
 
 def set_texts(cfg):
-    """Called by PATCH /settings (settings.py): validates, saves to flash and applies at once."""
+    """Called by PATCH /settings (settings.py, from the SP103's own page): validates, saves to flash and applies at once."""
     global texts
     texts = names.validate(cfg)
     names.save(texts)
@@ -323,7 +326,7 @@ async def main():
     config = settings.Routes(lambda: texts, set_texts).handle
     pub = Publisher(state, routes={"/settings": config, "/status": status_route, "/update": ota.handle,
                                    "/bus": log.handle, "/device": device.handle, "/ir": remote.handle, "/control": control.handle,
-                                   "/wifi": net.handle, "/": net.page})
+                                   "/wifi": net.handle, "/": config_page.handle, "/config": config_page.handle})
     log.clear(time.ticks_ms())
     asyncio.create_task(net.task(wifi_result))
     await asyncio.sleep(0.1)            # Wi-Fi starts before the server opens the socket

@@ -1,6 +1,7 @@
 """Custom display texts: input names and boot screens.
 
-They live in the Pico's names.json file and are edited by the app (PATCH /settings, settings.py):
+They live in the Pico's names.json file and are edited on the SP103's own page (config_page.py, through
+PATCH /settings, settings.py), outside the DeviceLink contract:
 
     {"inputs": {"TUNER": "Rega Planar 2", ...},
      "boot":   ["Welcome", "Alessandro"],     # instead of "ACOUSTIC" / "SOLUTIONS"

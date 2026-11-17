@@ -8,8 +8,10 @@ groove-rig (the amplifier's "state provider") can rely on; changes to it must al
 
 | Route | What |
 |---|---|
-| `GET /device` | Who the bridge is and what it can do: the DeviceLink contract `api` 2 (`docs/contract-v2.md`, in the device-link repository) since 2026-11-17, with the state fields, the remote and the settings (`firmware/device.py`) |
-| `GET /settings`, `PATCH /settings` | The person-editable configuration (input names, boot screens, VU, info screens) as flat ids, `{"inputs.TUNER": "Rega Planar 2", "vu.on": true, ...}`. `PATCH` takes only what changes; a refusal is `400 {"error", "id"}` (`firmware/settings.py`) |
+| `GET /device` | Who the bridge is and what it can do: the DeviceLink contract `api` 2 (`docs/contract-v2.md`, in the device-link repository) since 2026-11-17, with the state fields and the remote, nothing else (`firmware/device.py`) |
+| `GET /`, `GET /config` | **The SP103's own page**, for a browser: the input names, boot and about screens, VU meter and info screens (`firmware/config_page.py`). Outside the DeviceLink contract: the app doesn't show it. While the setup network is open, `/` is the Wi-Fi setup page and `/config` is still this one |
+| `GET /settings`, `PATCH /settings` | What that page edits, as flat ids, `{"inputs.TUNER": "Rega Planar 2", "vu.on": true, ...}`. `PATCH` takes only what changes; a refusal is `400 {"error", "id"}` (`firmware/settings.py`). Not part of the DeviceLink contract |
+| `GET /settings/fields` | What the page draws: each id's type, label, group, hint, `when` (shown only while other ids have those values) and placeholder |
 | `GET /status` | The bridge's counters (bus reads and writes, VU, info screens), for diagnosis |
 | `GET /state` | The current state, as JSON |
 | `GET /events` | Server-Sent Events: one `data: {json}` with the current state right on connect, and another on every change. At most 4 states a second, always the latest. A `: ping` comment every 1 s keeps the connection alive: with nothing for about 5 s, the client should reconnect |

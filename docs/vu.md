@@ -1,6 +1,6 @@
 # VU meter on the amp's display
 
-With the VU meter turned on in the app (the amp's "VU meter" settings), the display's two lines become the bars for the left (L) and right
+With the VU meter turned on in the Pico's own page (`http://<the Pico's IP>/`, "VU meter" section), the display's two lines become the bars for the left (L) and right
 (R) channels **while music is playing**. Since 2026-10-29. Visual proposal: <https://claude.ai/artifact/6Zrty8KCsb3ZRsa7Uh2Ax7>.
 
 ## Data path
@@ -32,7 +32,7 @@ Flags: bit 0 = music playing; bit 1 = the gate file was read. Without the gate f
 
 ## What the display shows
 
-1. **VU off** in the app: everything as before. The Pico does not even request the frames.
+1. **VU off** on the page: everything as before. The Pico does not even request the frames.
 2. **VU on, with music and frames arriving**: L on line 1, R on line 2. Column 0 = the letter; columns 1 to 15 = the bar,
    5 pixel columns each: 75 steps from floor to top (automatic scale).
 3. **The controller drew a screen** (volume, input, menu, power on): the amp's screen appears at once and stays for 3 s after the
@@ -55,7 +55,9 @@ place of the amp's bar glyphs; when going back to the amp's screen, the Pico wri
 | Yamaha KX-393 (`kx393`) | the deck's meter: L and R on line 1, no letters (L on top, R below), one segment per cell on the deck's scale, from −30 to +8, in 2 dB steps near 0. The deck's 0 sits 10 dB below the top; the segments above it are taller. Line 2 is the ruler `30 17 10 4 0 4 8`. The peak is a lone segment; the clip lights the last one | 16 | 6 (`vu.KX_GLYPHS`) |
 
 
-## Settings (app, "VU meter" section; ids `vu.on`, `vu.layout`, `vu.relay` in `/settings`)
+## Settings (the Pico's own page, "VU meter" section; ids `vu.on`, `vu.layout`, `vu.relay` in `/settings`)
+
+Not in the DeviceLink app: the VU is the SP103's own extra, outside the contract (`docs/api-state.md`).
 
 | Field | Default | Range |
 |---|---|---|
@@ -65,16 +67,16 @@ place of the amp's bar glyphs; when going back to the amp's screen, the Pico wri
 The scale is always automatic (below). With "Disabled", the layout chosen before is kept for when the VU comes back.
 
 It lives in the Pico's `names.json`, together with the names (`"vu": {"on", "auto", "layout", "relay"}`; `"auto"` is always true, and the
-`"floor"`/`"top"` of an old file is ignored). The line below the fields says
-what the VU is doing: "VU on the display now", "waiting for music", "no data from the VU source"...
+`"floor"`/`"top"` of an old file is ignored). What the VU is doing ("VU on the display now", "waiting for music", "no
+data from the VU source"...) is in `GET /status`, field `vu`.
 
 **Automatic scale (default since 2026-10-29):** the REC OUT level varies a lot with the source. Measured with
 music: DAB averaging around −30 dBFS; vinyl (the Rega on the TUNER input) averaging −11 with peaks of −3, on both of the
 detector's sockets, so it is not bass noise. With the automatic scale, the top sits 5 dB above the loudest frame: it rises instantly and,
 with music, falls 1 dB/s (from vinyl to DAB takes about 24 s). The floor sits 20 dB below the top, as on a needle VU: the
 music varies little from one frame to the next (on vinyl, 90 % of frames within a 7 dB range), and with 20 dB the bar stays
-between half and 3/4, moving. Without music the top stays put; it ranges from −40 to 0 dB. The app shows the current scale
-("scale −26 to −6 dB").
+between half and 3/4, moving. Without music the top stays put; it ranges from −40 to 0 dB. `GET /status` shows the current
+scale.
 
 **Manual scale (removed from the page on 2026-11-02):** fixed floor and top, chosen by hand. It went because the automatic one
 follows the source on its own; `vu.py` still accepts it (`"auto": false`), but only the tests use it.
@@ -84,7 +86,7 @@ follows the source on its own; `vu.py` still accepts it (`"auto": false`), but o
 OUT's R is probably not even measured. With a stereo line capture, the VU shows both channels without changing anything on the Pico
 or the bridge; only the gain needs recalibrating in the groove-detector.
 
-If the VU errors on the Pico, it turns itself off and the display carries on with the amp's screen; the app shows the error.
+If the VU errors on the Pico, it turns itself off and the display carries on with the amp's screen; `GET /status` shows the error.
 Diagnostics at `http://sp103.local/status`, field `vu` (frames received, age of the last one, music).
 
 ## Installing the bridge

@@ -7,7 +7,10 @@ The repository was called `sp103-display-proxy` until 2026-11-16, when it was re
 
 - The controller and the amp's functions stay original. The Pico changes what the display shows: "TUNER" becomes
   "Rega Planar 2", and so on.
-- The Pico publishes the amp's state (volume, input, menus) on the network, at `http://sp103.local/` (API only: `docs/api-state.md`).
+- The Pico publishes the amp's state (volume, input, menus) on the network (`docs/api-state.md`), in the DeviceLink
+  contract: the device, its state and its remote, the same lean interface as the other devices.
+- The display texts, the VU meter and the info screens are the SP103's own extras: they are changed on the Pico's own
+  web page, `http://<the Pico's IP>/` in a browser, not in the DeviceLink app.
 - Optional: the two lines become a VU meter (L and R channels, with peak hold) while music plays, using data from the
   groove-detector (`docs/vu.md`).
 - The Pico controls the amp over Wi-Fi: it sends the remote control codes straight onto the IR line, inside the amp, and presses
@@ -39,7 +42,7 @@ Function button ◄──(GP0 reads, GP1 pulls to 0 only)── Pico 2 W
 | What for | How |
 |---|---|
 | See the amp's state | the DeviceLink app (device-link repository): it finds the amp on the network and builds its screen from `/device` (contract `api` 2, since 2026-11-17) |
-| Change the input names, the start screens, the VU and the info screens | the app, the amp's Settings sections (up to 16 characters, no accents), or `PATCH /settings` (`docs/api-state.md`) |
+| Change the input names, the start screens, the VU and the info screens | the Pico's own page: open `http://<the Pico's IP>/` (or `/config`) in a browser (up to 16 characters, no accents; saved a second after you stop typing), or `PATCH /settings` (`docs/api-state.md`). Not in the DeviceLink app |
 | Control the amp | the app (power, volume, input, tone, loudness, speakers), or `curl -X POST "http://sp103.local/control?target=bass&dir=up"` (`docs/api-state.md`) |
 | See the bus | `curl http://sp103.local/status` (the counters) and `curl http://sp103.local/bus` |
 | Download the log | `curl http://sp103.local/bus.csv` |
@@ -71,7 +74,9 @@ Function button ◄──(GP0 reads, GP1 pulls to 0 only)── Pico 2 W
     and `listeners.py`, plus `tools/enviar.py`, `tools/test_wifi.py` and `tools/test_listeners.py`. Change them there and
     copy with `python3 ../device-link/firmware-base/copiar.py --skip firmware/main.py`, never here. `main.py` stays this
     project's own (it imports `escuta.py` and shows errors on the LCD).
-  - `device.py` (`/device`, contract `api` 2) and `settings.py` (`/settings`) describe the amp to the app; `GET /status` gives the counters.
+  - `device.py` (`/device`, contract `api` 2) describes the amp to the app: the device, its state and its remote.
+    `config_page.py` (the page at `/`) and `settings.py` (`/settings`) are the SP103's own display configuration,
+    outside the contract. `GET /status` gives the counters.
 - `relay/`: the VU bridge (`sp103-vu-relay`, Go), which runs on the board with the groove-detector.
 - `tools/`: Wi-Fi upload, tests on the computer, log reader and capture decoder.
 - `captures/`: logic analyser `.lac` captures, used by the tests.

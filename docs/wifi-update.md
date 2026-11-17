@@ -79,7 +79,7 @@ The "version" is an 8-letter code that changes whenever any file changes.
 - **`secrets.py`**: optional now (it held the update password until 2026-11-17). Cable only. (The Wi-Fi network lives in
   `wifi.json`, changed through the Pico's setup network, `wifi.md`.)
 - **`wifi.json`**: the saved Wi-Fi network. The update never touches it.
-- **`names.json`**: the custom texts stay on the Pico and are edited by the app.
+- **`names.json`**: the custom texts stay on the Pico and are edited on its own page (`firmware/config_page.py`).
 
 ## Security
 

@@ -23,7 +23,8 @@ d = json.loads(json.dumps(device.describe("abcd1234", "SP103-D4FE")))
 assert d["api"] == 2 and d["kind"] == "amplifier" and d["name"] == "SP103-D4FE"
 assert d["model"] == "Acoustic Solutions SP103" and d["firmware"] == "alemser/sp103-mod"
 assert d["bridge_version"] == "abcd1234"
-assert {"control", "settings", "update", "wifi_setup"} <= set(d["features"])
+assert set(d["features"]) == {"control", "update", "wifi_setup"}, "the contract: device, state and remote only"
+assert "settings" not in d, "the display settings are the SP103's own page, not the contract"
 assert [g["group"] for g in d["controls"]] == ["power", "volume", "input", "tone", "modes"]
 options = d["controls"][2]["select"]["options"]
 assert [o["name"] for o in options] == list(INPUTS)
@@ -35,20 +36,22 @@ assert named[1]["key"] == "select_tuner" and named[1]["id"] == "tuner"
 assert device.CONTROLS[2]["select"]["options"] == [], "describe() does not change the template"
 assert d["state"][0]["id"] == "power"
 size = len(json.dumps(device.describe("abcd1234", "SP103-D4FE")))
-assert size < 9000, "the description stays small: %d bytes" % size
+assert size < 2500, "the description stays small: %d bytes" % size
 assert "diagnostics" not in d
 assert {f["id"]: f for f in d["state"]}["lcd"]["columns"] == 16
-by_id = {f["id"]: f for f in d["settings"]}
+
+# --- settings (the SP103's own page) -------------------------------------------------------------------
+fields = settings.fields()
+by_id = {f["id"]: f for f in fields}
 assert by_id["vu.layout"]["when"] == {"vu.on": True} and by_id["vu.layout"]["labels"][1] == "Cassette deck"
 assert by_id["info.secs"]["when"] == {"info.on": True, "info.mode": "temp"}
 assert by_id["boot.0"]["placeholder"] == "ACOUSTIC" and by_id["inputs.CD"]["placeholder"] == "CD"
-for f in d["settings"]:
+for f in fields:
     assert set(f.get("when", {})) <= set(by_id), "a condition names a real setting: %s" % f["id"]
-custom = device.describe("abcd1234", "SP103-D4FE", {"TUNER": "Rega Planar 2"})
-assert {f["id"]: f for f in custom["settings"]}["info.turntable.TUNER"]["label"] == "Rega Planar 2"
-
-# --- settings ------------------------------------------------------------------------------------------
-ids = [f["id"] for f in d["settings"]]
+    assert f["group"], "the page draws every field under a heading: %s" % f["id"]
+custom = settings.fields({"TUNER": "Rega Planar 2"})
+assert {f["id"]: f for f in custom}["info.turntable.TUNER"]["label"] == "Rega Planar 2"
+ids = [f["id"] for f in fields]
 assert len(ids) == len(set(ids)), "unique ids"
 cfg = names.validate({"inputs": {"TUNER": "Rega Planar 2"}, "info": {"turntable": ["PHONO"]}})
 flat = settings.to_flat(cfg)
@@ -138,4 +141,38 @@ run(routes.handle(request("PATCH", "/settings", b'not json'), None))
 assert answers[-1][0] == "400 Bad Request"
 run(routes.handle(request("GET", "/names"), None))
 assert answers[-1][0] == "404 Not Found", "the contract v1 route is gone"
+run(routes.handle(request("GET", "/settings/fields"), None))
+page_fields = {f["id"]: f for f in answers[-1][1]}
+assert answers[-1][0] == "200 OK" and sorted(page_fields) == sorted(ids)
+assert page_fields["info.turntable.DVD"]["label"] == "Apple TV", "the page's fields carry the saved names"
+
+# --- the page ------------------------------------------------------------------------------------------
+import config_page   # noqa: E402
+
+
+class Net:
+    name = "SP103-D4FE"
+    setup = False
+
+    def setup_open(self):
+        return self.setup
+
+    async def page(self, req, writer):
+        answers.append(("200 OK", b"wifi setup"))
+
+
+config_page.net = Net()
+run(config_page.handle(request("GET", "/"), None))
+status, body = answers[-1]
+assert status == "200 OK" and b"<title>SP103-D4FE display</title>" in body and b"/settings/fields" in body
+run(config_page.handle(request("GET", "/config"), None))
+assert answers[-1] == (status, body), "/config is the same page"
+config_page.net.setup = True
+run(config_page.handle(request("GET", "/"), None))
+assert answers[-1][1] == b"wifi setup", "with the setup network open, / is the Wi-Fi setup page"
+run(config_page.handle(request("GET", "/config"), None))
+assert answers[-1] == (status, body), "/config stays the display page"
+run(config_page.handle(request("GET", "/x"), None))
+assert answers[-1][0] == "404 Not Found"
+assert len(body) < 6000, "the page stays small: %d bytes" % len(body)
 print("all good")

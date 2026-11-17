@@ -17,7 +17,7 @@ IP:
    make -C relay deploy HOST=user@ip
    ```
 
-2. In the app, the amp's "VU meter" settings, put the board's IP in **Source (the VU relay's IP)**. The Pico does not resolve `.local` names.
+2. On the Pico's own page (`http://<the Pico's IP>/` in a browser), "VU meter" section, put the board's IP in **Source (the VU relay's IP)**. The Pico does not resolve `.local` names.
 
 3. Check, with music playing:
 
@@ -31,7 +31,7 @@ IP:
 
 | What shows up | Likely cause |
 |---|---|
-| App: "No data from ... Is the VU relay running there?" | The bridge is not installed on that board, or the IP in the app belongs to another one |
+| `GET /status`, field `vu`: no data from the VU source | The bridge is not installed on that board, or the IP on the page belongs to another one |
 | `make check`: no frames, with both services `active` | The board's firewall blocks UDP port 7091 (below) |
 | `make check`: `gate: no music`, with music playing | The detector is not seeing the signal: check its capture |
 | `make deploy`: "has no groove group" | The board does not have the groove-detector yet |

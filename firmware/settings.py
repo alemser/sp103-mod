@@ -1,12 +1,16 @@
-"""What a person may change on the bridge (names.json, see names.py), over HTTP.
+"""What a person may change on the display (names.json, see names.py), over HTTP: the SP103's own extras.
 
-    GET   /settings   {"<id>": value, ...}                    (contract v2: device-link docs/contract-v2.md, Settings)
-    PATCH /settings   only the ids that change; answers the whole object, or 400 {"error", "id"}
+Not part of the DeviceLink contract (device-link docs/contract-v2.md), which carries only the device, its state and
+its remote. The SP103's own page (config_page.py, http://<the Pico's IP>/) edits these; curl works too.
+
+    GET   /settings          {"<id>": value, ...}
+    PATCH /settings          only the ids that change; answers the whole object, or 400 {"error", "id"}
+    GET   /settings/fields   what the page draws: fields(), below
 
 The ids flatten names.json: "inputs.TUNER", "boot.0", "vu.on", "info.show.stylus", "info.turntable.PHONO". fields()
-is the description's "settings" list (device.py), with hints, "when" (shown only while other settings have those
-values) and placeholders (the amp's own text, when a text is empty). to_flat() and patch() run the same on the Pico and on the computer
-(tools/test_settings.py).
+gives each one's type, label, group, hint, "when" (shown only while other settings have those values) and placeholder
+(the amp's own text, when a text is empty). to_flat() and patch() run the same on the Pico and on the computer
+(tools/test_device.py).
 """
 
 import json
@@ -33,7 +37,7 @@ INFO_ON = {"info.on": True}
 
 
 def fields(custom=None):
-    """The description's settings list. custom = names.json "inputs": the turntable choices carry the chosen names."""
+    """The page's field list. custom = names.json "inputs": the turntable choices carry the chosen names."""
     custom = custom or {}
     out = [_lcd("inputs." + i, i, "Input names", placeholder=i) for i in INPUTS]
     out[0]["hint"] = "Empty = the amp's own name. Up to 16 characters, no accents"
@@ -143,7 +147,7 @@ def patch(cfg, changes):
 
 
 class Routes:
-    """/settings. get_cfg() gives the current names.json; apply(cfg) saves and applies a valid one."""
+    """/settings and /settings/fields. get_cfg() gives the current names.json; apply(cfg) saves and applies a valid one."""
 
     def __init__(self, get_cfg, apply):
         self.get_cfg = get_cfg
@@ -152,6 +156,8 @@ class Routes:
     async def handle(self, req, writer):
         from web import reply, reply_json
         body = await req.reader.readexactly(req.length) if req.length else b""
+        if req.path == "/settings/fields":
+            return await reply_json(writer, fields(self.get_cfg()["inputs"]))
         if req.path != "/settings":
             return await reply(writer, "404 Not Found", "text/plain", b"not found\n")
         error = None
